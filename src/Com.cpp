@@ -40,26 +40,33 @@ SerialCommunicationClass::SerialCommunicationClass(std::function<void(const Rece
 }
 
 SerialCommunicationClass::~SerialCommunicationClass() {
-    stop();
-}
-
-void SerialCommunicationClass::start() {
-    running = true;
-    recv_thread_ = std::thread(&SerialCommunicationClass::timerThread, this);
-}
-
-void SerialCommunicationClass::stop() {
-    running = false;
-    if (recv_thread_.joinable()) {
-        recv_thread_.join();
-    }
+    stopWorker();
+    std::lock_guard<std::mutex> lock(fd_mutex_);
     if (fd_ >= 0) {
         close(fd_);
         fd_ = -1;
     }
 }
 
+void SerialCommunicationClass::startWorker() {
+    // 若已有线程运行，先安全停止旧线程（不关闭fd）
+    if (recv_thread_.joinable()) {
+        running = false;
+        recv_thread_.join();
+    }
+    running = true;
+    recv_thread_ = std::thread(&SerialCommunicationClass::timerThread, this);
+}
+
+void SerialCommunicationClass::stopWorker() {
+    running = false;
+    if (recv_thread_.joinable()) {
+        recv_thread_.join();
+    }
+}
+
 void SerialCommunicationClass::tryReconnect() {
+    std::lock_guard<std::mutex> lock(fd_mutex_);
     if (fd_ >= 0) {
         close(fd_);
     }
@@ -162,6 +169,7 @@ std::vector<std::string> SerialCommunicationClass::findAvailableSerialPorts() {
 }
 
 bool SerialCommunicationClass::sendData(SendPacket& packet) {
+    std::lock_guard<std::mutex> lock(fd_mutex_);
     if (fd_ >= 0) {
         packet.crc8 = CRC8_Check_Sum(reinterpret_cast<uint8_t*>(&packet), sizeof(SendPacket) - 1);
 

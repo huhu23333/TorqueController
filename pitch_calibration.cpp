@@ -21,9 +21,10 @@
 
 namespace {
 
-std::atomic<bool> keep_running{true};
-
-void signalHandler(int) { keep_running = false; }
+void signalHandler(int) { 
+    std::cout << "\n用户中断。\n";
+    exit(0);
+}
 
 struct DataPoint { float x; float y; };
 
@@ -61,7 +62,7 @@ PitchCalibrator::PitchCalibrator(float x_min, float x_max, int fit_points)
     , x_min_(x_min), x_max_(x_max), fit_points_(fit_points)
 {}
 
-PitchCalibrator::~PitchCalibrator() { serial_.stop(); }
+PitchCalibrator::~PitchCalibrator() { serial_.stopWorker(); }
 
 void PitchCalibrator::onPacket(const ReceivePacket& pkt) {
     std::lock_guard<std::mutex> lock(data_mutex_);
@@ -128,7 +129,7 @@ LinearFit PitchCalibrator::fitLinear(const std::vector<DataPoint>& pts) const {
 }
 
 void PitchCalibrator::run() {
-    serial_.start();
+    serial_.startWorker();
 
     // ── Step 1: 测量两端点 ──
     std::cout << "\n========== Step 1: 测量两端点 ==========\n";
@@ -200,18 +201,13 @@ void PitchCalibrator::run() {
     }
 
     std::vector<DataPoint> samples;
-    for (int i = 0; i < fit_points_ && keep_running; ++i) {
+    for (int i = 0; i < fit_points_; ++i) {
         float x = x_order[i];
         float y = measureY(x);
         samples.push_back({x, y});
         std::cout << "  [" << std::setw(2) << i + 1 << "/" << fit_points_ << "]"
                   << " x=" << std::fixed << std::setprecision(4) << x
                   << " -> y=" << y << "\n";
-    }
-
-    if (!keep_running) {
-        std::cout << "\n用户中断。\n";
-        return;
     }
 
     // ── Step 5: 线性拟合 ──

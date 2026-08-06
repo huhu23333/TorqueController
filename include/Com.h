@@ -32,8 +32,8 @@ class SerialCommunicationClass {
 public:
     SerialCommunicationClass(std::function<void(const ReceivePacket&)> serialDataCallback);
     ~SerialCommunicationClass();
-    void start();
-    void stop();
+    void startWorker();
+    void stopWorker();
     void timerCallback();
     bool sendData(SendPacket& packet);
 
@@ -46,6 +46,7 @@ private:
     static constexpr size_t FRAME_MIN_SIZE = 5;
 
     int fd_;
+    std::mutex fd_mutex_;
     std::array<uint8_t, BUFFER_SIZE> buffer_;
     size_t buffer_index_ = 0;
 
