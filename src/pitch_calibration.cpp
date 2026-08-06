@@ -9,7 +9,7 @@
 // 拟合，得到的斜率和截距更能代表系统的真实线性特性，避免端点异常值
 // 拉偏回归结果。
 
-#include "Com.h"
+#include "Communications.hpp"
 #include <iostream>
 #include <iomanip>
 #include <vector>
@@ -41,15 +41,15 @@ public:
     void run();
 
 private:
-    SerialCommunicationClass serial_;
+    McuCommunication serial_;
     std::mutex              data_mutex_;
-    ReceivePacket           latest_packet_{};
+    mcu::ReceivePacket      latest_packet_{};
     bool                    has_data_ = false;
 
     float x_min_, x_max_;
     int   fit_points_;
 
-    void onPacket(const ReceivePacket& pkt);
+    void onPacket(const mcu::ReceivePacket& pkt);
     float measureY(float x);
     float binarySearchX(float target_y, float x_lo, float x_hi,
                          float sign, int max_iter = 8);
@@ -58,20 +58,20 @@ private:
 };
 
 PitchCalibrator::PitchCalibrator(float x_min, float x_max, int fit_points)
-    : serial_([this](const ReceivePacket& pkt) { onPacket(pkt); })
+    : serial_([this](const mcu::ReceivePacket& pkt) { onPacket(pkt); })
     , x_min_(x_min), x_max_(x_max), fit_points_(fit_points)
 {}
 
 PitchCalibrator::~PitchCalibrator() { serial_.stopWorker(); }
 
-void PitchCalibrator::onPacket(const ReceivePacket& pkt) {
+void PitchCalibrator::onPacket(const mcu::ReceivePacket& pkt) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     latest_packet_ = pkt;
     has_data_ = true;
 }
 
 float PitchCalibrator::measureY(float x) {
-    SendPacket pkt;
+    mcu::SendPacket pkt;
     pkt.auto_aim_enable    = 1;
     pkt.pitch_target_angle = x;
     pkt.yaw_torque         = 0;

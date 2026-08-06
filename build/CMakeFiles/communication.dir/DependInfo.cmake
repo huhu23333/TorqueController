@@ -9,7 +9,6 @@ set(CMAKE_DEPENDS_LANGUAGES
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/huhu233/rm2027/TorqueController/src/CRC.cpp" "CMakeFiles/communication.dir/src/CRC.cpp.o" "gcc" "CMakeFiles/communication.dir/src/CRC.cpp.o.d"
-  "/home/huhu233/rm2027/TorqueController/src/Com.cpp" "CMakeFiles/communication.dir/src/Com.cpp.o" "gcc" "CMakeFiles/communication.dir/src/Com.cpp.o.d"
   )
 
 # Targets to which this target links.

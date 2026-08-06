@@ -155,54 +155,6 @@ pitch_calibration/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/build
 .PHONY : pitch_calibration/fast
 
-main.o: main.cpp.o
-.PHONY : main.o
-
-# target to build an object file
-main.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/main.cpp.o
-.PHONY : main.cpp.o
-
-main.i: main.cpp.i
-.PHONY : main.i
-
-# target to preprocess a source file
-main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/main.cpp.i
-.PHONY : main.cpp.i
-
-main.s: main.cpp.s
-.PHONY : main.s
-
-# target to generate assembly for a file
-main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/main.cpp.s
-.PHONY : main.cpp.s
-
-pitch_calibration.o: pitch_calibration.cpp.o
-.PHONY : pitch_calibration.o
-
-# target to build an object file
-pitch_calibration.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o
-.PHONY : pitch_calibration.cpp.o
-
-pitch_calibration.i: pitch_calibration.cpp.i
-.PHONY : pitch_calibration.i
-
-# target to preprocess a source file
-pitch_calibration.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.i
-.PHONY : pitch_calibration.cpp.i
-
-pitch_calibration.s: pitch_calibration.cpp.s
-.PHONY : pitch_calibration.s
-
-# target to generate assembly for a file
-pitch_calibration.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.s
-.PHONY : pitch_calibration.cpp.s
-
 src/CRC.o: src/CRC.cpp.o
 .PHONY : src/CRC.o
 
@@ -227,29 +179,53 @@ src/CRC.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/CRC.cpp.s
 .PHONY : src/CRC.cpp.s
 
-src/Com.o: src/Com.cpp.o
-.PHONY : src/Com.o
+src/main.o: src/main.cpp.o
+.PHONY : src/main.o
 
 # target to build an object file
-src/Com.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/Com.cpp.o
-.PHONY : src/Com.cpp.o
+src/main.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/src/main.cpp.o
+.PHONY : src/main.cpp.o
 
-src/Com.i: src/Com.cpp.i
-.PHONY : src/Com.i
+src/main.i: src/main.cpp.i
+.PHONY : src/main.i
 
 # target to preprocess a source file
-src/Com.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/Com.cpp.i
-.PHONY : src/Com.cpp.i
+src/main.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/src/main.cpp.i
+.PHONY : src/main.cpp.i
 
-src/Com.s: src/Com.cpp.s
-.PHONY : src/Com.s
+src/main.s: src/main.cpp.s
+.PHONY : src/main.s
 
 # target to generate assembly for a file
-src/Com.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/Com.cpp.s
-.PHONY : src/Com.cpp.s
+src/main.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/src/main.cpp.s
+.PHONY : src/main.cpp.s
+
+src/pitch_calibration.o: src/pitch_calibration.cpp.o
+.PHONY : src/pitch_calibration.o
+
+# target to build an object file
+src/pitch_calibration.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o
+.PHONY : src/pitch_calibration.cpp.o
+
+src/pitch_calibration.i: src/pitch_calibration.cpp.i
+.PHONY : src/pitch_calibration.i
+
+# target to preprocess a source file
+src/pitch_calibration.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.i
+.PHONY : src/pitch_calibration.cpp.i
+
+src/pitch_calibration.s: src/pitch_calibration.cpp.s
+.PHONY : src/pitch_calibration.s
+
+# target to generate assembly for a file
+src/pitch_calibration.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.s
+.PHONY : src/pitch_calibration.cpp.s
 
 # Help Target
 help:
@@ -262,18 +238,15 @@ help:
 	@echo "... communication"
 	@echo "... pitch_calibration"
 	@echo "... test_serial"
-	@echo "... main.o"
-	@echo "... main.i"
-	@echo "... main.s"
-	@echo "... pitch_calibration.o"
-	@echo "... pitch_calibration.i"
-	@echo "... pitch_calibration.s"
 	@echo "... src/CRC.o"
 	@echo "... src/CRC.i"
 	@echo "... src/CRC.s"
-	@echo "... src/Com.o"
-	@echo "... src/Com.i"
-	@echo "... src/Com.s"
+	@echo "... src/main.o"
+	@echo "... src/main.i"
+	@echo "... src/main.s"
+	@echo "... src/pitch_calibration.o"
+	@echo "... src/pitch_calibration.i"
+	@echo "... src/pitch_calibration.s"
 .PHONY : help
 
 

@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o"
-  "CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o.d"
+  "CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o"
+  "CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o.d"
   "pitch_calibration"
   "pitch_calibration.pdb"
 )

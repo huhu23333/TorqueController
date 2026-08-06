@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/huhu233/rm2027/TorqueController/pitch_calibration.cpp" "CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o" "gcc" "CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o.d"
+  "/home/huhu233/rm2027/TorqueController/src/pitch_calibration.cpp" "CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o" "gcc" "CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o.d"
   )
 
 # Targets to which this target links.

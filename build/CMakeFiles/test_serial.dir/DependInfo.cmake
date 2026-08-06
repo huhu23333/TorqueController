@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/huhu233/rm2027/TorqueController/main.cpp" "CMakeFiles/test_serial.dir/main.cpp.o" "gcc" "CMakeFiles/test_serial.dir/main.cpp.o.d"
+  "/home/huhu233/rm2027/TorqueController/src/main.cpp" "CMakeFiles/test_serial.dir/src/main.cpp.o" "gcc" "CMakeFiles/test_serial.dir/src/main.cpp.o.d"
   )
 
 # Targets to which this target links.

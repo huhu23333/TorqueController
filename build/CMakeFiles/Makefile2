@@ -85,12 +85,12 @@ clean: CMakeFiles/pitch_calibration.dir/clean
 CMakeFiles/communication.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=1,2,3 "Built target communication"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=1,2 "Built target communication"
 .PHONY : CMakeFiles/communication.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/communication.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 3
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 2
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/communication.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 0
 .PHONY : CMakeFiles/communication.dir/rule
@@ -111,12 +111,12 @@ CMakeFiles/communication.dir/clean:
 CMakeFiles/test_serial.dir/all: CMakeFiles/communication.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=6,7 "Built target test_serial"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=5,6 "Built target test_serial"
 .PHONY : CMakeFiles/test_serial.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/test_serial.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 5
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 4
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/test_serial.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 0
 .PHONY : CMakeFiles/test_serial.dir/rule
@@ -137,12 +137,12 @@ CMakeFiles/test_serial.dir/clean:
 CMakeFiles/pitch_calibration.dir/all: CMakeFiles/communication.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=4,5 "Built target pitch_calibration"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=3,4 "Built target pitch_calibration"
 .PHONY : CMakeFiles/pitch_calibration.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/pitch_calibration.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 5
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 4
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/pitch_calibration.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 0
 .PHONY : CMakeFiles/pitch_calibration.dir/rule

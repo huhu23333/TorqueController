@@ -1,5 +1,13 @@
 #pragma once
-#include <stdint.h>
+#include <cstdint>
+
+// ============================================================================
+// MCU (电控) 通信协议
+// ============================================================================
+namespace mcu {
+
+// 帧同步前导字节数（即 frame_header1 + frame_header2 + protocol_version = 3 字节）
+constexpr size_t PREAMBLE_SIZE = 3;
 
 #pragma pack(push, 1)
 struct SendPacket
@@ -34,3 +42,46 @@ struct ReceivePacket
     uint8_t crc8;
 };
 #pragma pack(pop)
+
+} // namespace mcu
+
+
+// ============================================================================
+// IMU 通信协议
+// ============================================================================
+namespace imu {
+
+// 帧同步前导字节数（即 frame_header1 + frame_header2 + frame_header3 = 3 字节）
+constexpr size_t PREAMBLE_SIZE = 3;
+
+#pragma pack(push, 1)
+struct SendPacket
+{
+    uint8_t frame_header1 = 0xA7;
+    uint8_t frame_header2 = 0xB6;
+    uint8_t frame_header3 = 0xC5;
+    uint8_t data_size = 0;              // 无数据载荷，仅心跳
+    uint32_t crc32;
+};
+
+struct ReceivePacket
+{
+    uint8_t frame_header1 = 0xA7;
+    uint8_t frame_header2 = 0xB6;
+    uint8_t frame_header3 = 0xC5;
+    uint8_t data_size;
+    float gx;
+    float gy;
+    float gz;
+    float ax;
+    float ay;
+    float az;
+    double euler_yaw;
+    double euler_pitch;
+    double euler_roll;
+    uint32_t dt_one_tenth_ms;
+    uint32_t crc32;
+};
+#pragma pack(pop)
+
+} // namespace imu

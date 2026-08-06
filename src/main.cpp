@@ -1,5 +1,5 @@
 // main.cpp
-#include "Com.h"
+#include "Communications.hpp"
 #include <iostream>
 #include <thread>
 #include <csignal>
@@ -11,7 +11,7 @@ void signalHandler(int signum) {
     keep_running = false;
 }
 
-void onReceive(const ReceivePacket& packet) {
+void onReceive(const mcu::ReceivePacket& packet) {
     std::cout << "\n[Received Packet]" << std::endl;
     std::cout << "  frame_header1:      0x" << std::hex << std::uppercase 
               << static_cast<int>(packet.frame_header1) << std::dec << std::endl;
@@ -39,10 +39,10 @@ int main() {
     signal(SIGTERM, signalHandler);
 
     std::cout << "Starting Serial Communication Test..." << std::endl;
-    std::cout << "SendPacket size: " << sizeof(SendPacket) << " bytes" << std::endl;
-    std::cout << "ReceivePacket size: " << sizeof(ReceivePacket) << " bytes" << std::endl;
+    std::cout << "SendPacket size: " << sizeof(mcu::SendPacket) << " bytes" << std::endl;
+    std::cout << "ReceivePacket size: " << sizeof(mcu::ReceivePacket) << " bytes" << std::endl;
 
-    SerialCommunicationClass serial(onReceive);
+    McuCommunication serial(onReceive);
 
     // 启动接收线程
     serial.startWorker();
@@ -52,7 +52,7 @@ int main() {
 
     int send_count = 0;
     while (keep_running) {
-        SendPacket packet;
+        mcu::SendPacket packet;
         // 默认初始化的frame_header1, frame_header2, protocol_version, data_size 已自动设置
         packet.auto_aim_enable = 1;       // false
         packet.pitch_target_angle = 10.0f; // 0

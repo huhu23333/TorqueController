@@ -69,28 +69,28 @@ include CMakeFiles/pitch_calibration.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/pitch_calibration.dir/flags.make
 
-CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o: CMakeFiles/pitch_calibration.dir/flags.make
-CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o: ../pitch_calibration.cpp
-CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o: CMakeFiles/pitch_calibration.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o -MF CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o.d -o CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o -c /home/huhu233/rm2027/TorqueController/pitch_calibration.cpp
+CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o: CMakeFiles/pitch_calibration.dir/flags.make
+CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o: ../src/pitch_calibration.cpp
+CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o: CMakeFiles/pitch_calibration.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o -MF CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o.d -o CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o -c /home/huhu233/rm2027/TorqueController/src/pitch_calibration.cpp
 
-CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huhu233/rm2027/TorqueController/pitch_calibration.cpp > CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.i
+CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huhu233/rm2027/TorqueController/src/pitch_calibration.cpp > CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.i
 
-CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huhu233/rm2027/TorqueController/pitch_calibration.cpp -o CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.s
+CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huhu233/rm2027/TorqueController/src/pitch_calibration.cpp -o CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.s
 
 # Object files for target pitch_calibration
 pitch_calibration_OBJECTS = \
-"CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o"
+"CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o"
 
 # External object files for target pitch_calibration
 pitch_calibration_EXTERNAL_OBJECTS =
 
-pitch_calibration: CMakeFiles/pitch_calibration.dir/pitch_calibration.cpp.o
+pitch_calibration: CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o
 pitch_calibration: CMakeFiles/pitch_calibration.dir/build.make
 pitch_calibration: libcommunication.a
 pitch_calibration: /usr/lib/x86_64-linux-gnu/libudev.so
