@@ -156,17 +156,17 @@ pitch_calibration/fast:
 .PHONY : pitch_calibration/fast
 
 #=============================================================================
-# Target rules for targets named yaw_control
+# Target rules for targets named control_demo
 
 # Build rule for target.
-yaw_control: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 yaw_control
-.PHONY : yaw_control
+control_demo: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 control_demo
+.PHONY : control_demo
 
 # fast build rule for target.
-yaw_control/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yaw_control.dir/build.make CMakeFiles/yaw_control.dir/build
-.PHONY : yaw_control/fast
+control_demo/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/control_demo.dir/build.make CMakeFiles/control_demo.dir/build
+.PHONY : control_demo/fast
 
 src/CRC.o: src/CRC.cpp.o
 .PHONY : src/CRC.o
@@ -216,29 +216,29 @@ src/McuDataPreprocessor.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.s
 .PHONY : src/McuDataPreprocessor.cpp.s
 
-src/main.o: src/main.cpp.o
-.PHONY : src/main.o
+src/control_demo.o: src/control_demo.cpp.o
+.PHONY : src/control_demo.o
 
 # target to build an object file
-src/main.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/src/main.cpp.o
-.PHONY : src/main.cpp.o
+src/control_demo.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/control_demo.dir/build.make CMakeFiles/control_demo.dir/src/control_demo.cpp.o
+.PHONY : src/control_demo.cpp.o
 
-src/main.i: src/main.cpp.i
-.PHONY : src/main.i
+src/control_demo.i: src/control_demo.cpp.i
+.PHONY : src/control_demo.i
 
 # target to preprocess a source file
-src/main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/src/main.cpp.i
-.PHONY : src/main.cpp.i
+src/control_demo.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/control_demo.dir/build.make CMakeFiles/control_demo.dir/src/control_demo.cpp.i
+.PHONY : src/control_demo.cpp.i
 
-src/main.s: src/main.cpp.s
-.PHONY : src/main.s
+src/control_demo.s: src/control_demo.cpp.s
+.PHONY : src/control_demo.s
 
 # target to generate assembly for a file
-src/main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/src/main.cpp.s
-.PHONY : src/main.cpp.s
+src/control_demo.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/control_demo.dir/build.make CMakeFiles/control_demo.dir/src/control_demo.cpp.s
+.PHONY : src/control_demo.cpp.s
 
 src/pitch_calibration.o: src/pitch_calibration.cpp.o
 .PHONY : src/pitch_calibration.o
@@ -264,29 +264,29 @@ src/pitch_calibration.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.s
 .PHONY : src/pitch_calibration.cpp.s
 
-src/yaw_control.o: src/yaw_control.cpp.o
-.PHONY : src/yaw_control.o
+src/test_serial.o: src/test_serial.cpp.o
+.PHONY : src/test_serial.o
 
 # target to build an object file
-src/yaw_control.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yaw_control.dir/build.make CMakeFiles/yaw_control.dir/src/yaw_control.cpp.o
-.PHONY : src/yaw_control.cpp.o
+src/test_serial.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/src/test_serial.cpp.o
+.PHONY : src/test_serial.cpp.o
 
-src/yaw_control.i: src/yaw_control.cpp.i
-.PHONY : src/yaw_control.i
+src/test_serial.i: src/test_serial.cpp.i
+.PHONY : src/test_serial.i
 
 # target to preprocess a source file
-src/yaw_control.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yaw_control.dir/build.make CMakeFiles/yaw_control.dir/src/yaw_control.cpp.i
-.PHONY : src/yaw_control.cpp.i
+src/test_serial.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/src/test_serial.cpp.i
+.PHONY : src/test_serial.cpp.i
 
-src/yaw_control.s: src/yaw_control.cpp.s
-.PHONY : src/yaw_control.s
+src/test_serial.s: src/test_serial.cpp.s
+.PHONY : src/test_serial.s
 
 # target to generate assembly for a file
-src/yaw_control.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yaw_control.dir/build.make CMakeFiles/yaw_control.dir/src/yaw_control.cpp.s
-.PHONY : src/yaw_control.cpp.s
+src/test_serial.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/src/test_serial.cpp.s
+.PHONY : src/test_serial.cpp.s
 
 # Help Target
 help:
@@ -297,24 +297,24 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... communication"
+	@echo "... control_demo"
 	@echo "... pitch_calibration"
 	@echo "... test_serial"
-	@echo "... yaw_control"
 	@echo "... src/CRC.o"
 	@echo "... src/CRC.i"
 	@echo "... src/CRC.s"
 	@echo "... src/McuDataPreprocessor.o"
 	@echo "... src/McuDataPreprocessor.i"
 	@echo "... src/McuDataPreprocessor.s"
-	@echo "... src/main.o"
-	@echo "... src/main.i"
-	@echo "... src/main.s"
+	@echo "... src/control_demo.o"
+	@echo "... src/control_demo.i"
+	@echo "... src/control_demo.s"
 	@echo "... src/pitch_calibration.o"
 	@echo "... src/pitch_calibration.i"
 	@echo "... src/pitch_calibration.s"
-	@echo "... src/yaw_control.o"
-	@echo "... src/yaw_control.i"
-	@echo "... src/yaw_control.s"
+	@echo "... src/test_serial.o"
+	@echo "... src/test_serial.i"
+	@echo "... src/test_serial.s"
 .PHONY : help
 
 

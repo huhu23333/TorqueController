@@ -69,28 +69,28 @@ include CMakeFiles/test_serial.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/test_serial.dir/flags.make
 
-CMakeFiles/test_serial.dir/src/main.cpp.o: CMakeFiles/test_serial.dir/flags.make
-CMakeFiles/test_serial.dir/src/main.cpp.o: ../src/main.cpp
-CMakeFiles/test_serial.dir/src/main.cpp.o: CMakeFiles/test_serial.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_serial.dir/src/main.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_serial.dir/src/main.cpp.o -MF CMakeFiles/test_serial.dir/src/main.cpp.o.d -o CMakeFiles/test_serial.dir/src/main.cpp.o -c /home/huhu233/rm2027/TorqueController/src/main.cpp
+CMakeFiles/test_serial.dir/src/test_serial.cpp.o: CMakeFiles/test_serial.dir/flags.make
+CMakeFiles/test_serial.dir/src/test_serial.cpp.o: ../src/test_serial.cpp
+CMakeFiles/test_serial.dir/src/test_serial.cpp.o: CMakeFiles/test_serial.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_serial.dir/src/test_serial.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_serial.dir/src/test_serial.cpp.o -MF CMakeFiles/test_serial.dir/src/test_serial.cpp.o.d -o CMakeFiles/test_serial.dir/src/test_serial.cpp.o -c /home/huhu233/rm2027/TorqueController/src/test_serial.cpp
 
-CMakeFiles/test_serial.dir/src/main.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/test_serial.dir/src/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huhu233/rm2027/TorqueController/src/main.cpp > CMakeFiles/test_serial.dir/src/main.cpp.i
+CMakeFiles/test_serial.dir/src/test_serial.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/test_serial.dir/src/test_serial.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huhu233/rm2027/TorqueController/src/test_serial.cpp > CMakeFiles/test_serial.dir/src/test_serial.cpp.i
 
-CMakeFiles/test_serial.dir/src/main.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/test_serial.dir/src/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huhu233/rm2027/TorqueController/src/main.cpp -o CMakeFiles/test_serial.dir/src/main.cpp.s
+CMakeFiles/test_serial.dir/src/test_serial.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/test_serial.dir/src/test_serial.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huhu233/rm2027/TorqueController/src/test_serial.cpp -o CMakeFiles/test_serial.dir/src/test_serial.cpp.s
 
 # Object files for target test_serial
 test_serial_OBJECTS = \
-"CMakeFiles/test_serial.dir/src/main.cpp.o"
+"CMakeFiles/test_serial.dir/src/test_serial.cpp.o"
 
 # External object files for target test_serial
 test_serial_EXTERNAL_OBJECTS =
 
-test_serial: CMakeFiles/test_serial.dir/src/main.cpp.o
+test_serial: CMakeFiles/test_serial.dir/src/test_serial.cpp.o
 test_serial: CMakeFiles/test_serial.dir/build.make
 test_serial: libcommunication.a
 test_serial: /usr/lib/x86_64-linux-gnu/libudev.so

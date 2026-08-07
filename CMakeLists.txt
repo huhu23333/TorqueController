@@ -34,13 +34,13 @@ target_include_directories(communication PUBLIC
 target_link_libraries(communication PUBLIC ${UDEV_LIBRARY})
 
 # 构建测试可执行文件
-add_executable(test_serial src/main.cpp)
+add_executable(test_serial src/test_serial.cpp)
 target_link_libraries(test_serial PRIVATE communication)
 
 # 构建 Pitch 轴标定程序
 add_executable(pitch_calibration src/pitch_calibration.cpp)
 target_link_libraries(pitch_calibration PRIVATE communication)
 
-# 构建 Yaw 轴 PID 闭环控制程序
-add_executable(yaw_control src/yaw_control.cpp)
-target_link_libraries(yaw_control PRIVATE communication)
+# 构建控制演示程序
+add_executable(control_demo src/control_demo.cpp)
+target_link_libraries(control_demo PRIVATE communication)

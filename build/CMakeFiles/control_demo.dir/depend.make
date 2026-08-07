@@ -1,2 +1,2 @@
-# Empty dependencies file for yaw_control.
+# Empty dependencies file for control_demo.
 # This may be replaced when dependencies are built.

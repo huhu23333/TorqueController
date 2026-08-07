@@ -1,7 +1,8 @@
-// yaw_control.cpp
-// Yaw 轴 PID 闭环控制程序
-// - 目标角度：来自 IMU 的 euler_yaw（imu::ReceivePacket）
-// - 观测角度：来自 MCU 接收包经 McuDataPreprocessor 预处理后的 yaw_angle
+// control_demo.cpp
+// 控制演示程序 (原 yaw_control)
+// - 目标角度：来自 IMU 的 euler_yaw（观测值与目标值相等，显式赋值）
+// - 观测角度：来自 IMU 的 euler_yaw（imu::ReceivePacket）
+// - Pitch 目标：来自 IMU 的 euler_pitch
 // - PID 输出 yaw_torque → 通过 mcu::SendPacket 发送给电控
 
 #include "Communications.hpp"
@@ -88,10 +89,9 @@ void onMcuReceive(const mcu::ReceivePacket& packet) {
     has_mcu_data_ = true;
 }
 
-float normalizeAngle(float angle) {
-    while (angle >  M_PI) angle -= 2.0f * static_cast<float>(M_PI);
-    while (angle < -M_PI) angle += 2.0f * static_cast<float>(M_PI);
-    return angle;
+const double TWO_PI = 2.0 * M_PI;
+double normalizeAngle(double angle) {
+    return std::remainder(angle, TWO_PI);
 }
 
 void signalHandler(int) {
@@ -105,9 +105,10 @@ int main() {
     signal(SIGTERM, signalHandler);
 
     std::cout << "========================================" << std::endl;
-    std::cout << "  Yaw 轴 PID 闭环控制程序" << std::endl;
-    std::cout << "  目标: IMU euler_yaw" << std::endl;
-    std::cout << "  观测: MCU yaw_angle (预处理后)" << std::endl;
+    std::cout << "  控制演示程序 (control_demo)" << std::endl;
+    std::cout << "  目标: IMU euler_yaw (与观测值相等)" << std::endl;
+    std::cout << "  观测: IMU euler_yaw" << std::endl;
+    std::cout << "  Pitch目标: IMU euler_pitch" << std::endl;
     std::cout << "========================================" << std::endl;
 
     ImuCommunication imu_serial(onImuReceive);
@@ -116,7 +117,7 @@ int main() {
     std::cout << "IMU 和 MCU 通信已启动，等待数据..." << std::endl;
 
     // PID: Kp=2.0 Ki=0.1 Kd=0.05, output [-1.0, 1.0]
-    PidController pid(2.0f, 0.1f, 0.05f, -1.0f, 1.0f);
+    PidController pid(2.0f, 0.1f, 0.2f, -1.0f, 1.0f);
 
     auto last_time = std::chrono::steady_clock::now();
     int  loop_count = 0;
@@ -126,44 +127,53 @@ int main() {
         float dt = std::chrono::duration<float>(now - last_time).count();
         last_time = now;
 
-        float target_yaw = 0.0f;
-        bool  imu_valid  = false;
+        // 循环开头统一加锁复制一份 latest_imu_packet_ 和 latest_mcu_packet_
+        imu::ReceivePacket imu_pkt;
+        mcu::ReceivePacket mcu_pkt;
+        bool imu_valid = false;
+        bool mcu_valid = false;
         {
-            std::lock_guard<std::mutex> lock(imu_mutex_);
+            std::lock_guard<std::mutex> lock_imu(imu_mutex_);
             if (has_imu_data_) {
-                target_yaw = static_cast<float>(latest_imu_packet_.euler_yaw);
-                imu_valid  = true;
+                imu_pkt   = latest_imu_packet_;
+                imu_valid = true;
+            }
+        }
+        {
+            std::lock_guard<std::mutex> lock_mcu(mcu_mutex_);
+            if (has_mcu_data_) {
+                mcu_pkt   = latest_mcu_packet_;
+                mcu_valid = true;
             }
         }
 
+        // 使用复制的包，不再加锁
+        float target_yaw   = 0.0f;
         float observed_yaw = 0.0f;
-        bool  mcu_valid    = false;
-        {
-            std::lock_guard<std::mutex> lock(mcu_mutex_);
-            if (has_mcu_data_) {
-                observed_yaw = latest_mcu_packet_.yaw_angle;
-                mcu_valid    = true;
-            }
+        if (imu_valid) {
+            target_yaw   = static_cast<float>(imu_pkt.euler_yaw);
+            observed_yaw = static_cast<float>(imu_pkt.euler_yaw);
         }
 
         float yaw_torque = 0.0f;
-        if (imu_valid && mcu_valid) {
+        if (imu_valid) {
             float error = normalizeAngle(target_yaw - observed_yaw);
             yaw_torque = pid.update(error, dt);
         }
 
-        // 构造发送包并发送
+        // 构造发送包、预处理并发送
         mcu::SendPacket pkt;
         pkt.auto_aim_enable    = 1;
-        pkt.pitch_target_angle = 10.0f;
+        pkt.pitch_target_angle = imu_valid ? static_cast<float>(imu_pkt.euler_pitch) : 0.0f;
         pkt.yaw_torque         = yaw_torque;
         pkt.fire               = 0;
+        pkt = McuDataPreprocessor::processSend(pkt);
         mcu_serial.sendData(pkt);
 
         // 每 100 次循环打印一次状态
         if (++loop_count % 100 == 0) {
             float err = 0.0f;
-            if (imu_valid && mcu_valid)
+            if (imu_valid)
                 err = normalizeAngle(target_yaw - observed_yaw);
             std::cout << std::fixed << std::setprecision(3)
                       << "[Loop " << loop_count << "] "
@@ -171,8 +181,8 @@ int main() {
                       << " observed=" << observed_yaw
                       << " error=" << err
                       << " torque=" << yaw_torque
-                      << " (IMU:" << (imu_valid ? "Y" : "N")
-                      << " MCU:" << (mcu_valid ? "Y" : "N") << ")"
+                      << " pitch_target=" << pkt.pitch_target_angle
+                      << " (IMU:" << (imu_valid ? "Y" : "N") << ")"
                       << std::endl;
         }
 
@@ -186,4 +196,3 @@ int main() {
 
     return 0;
 }
-

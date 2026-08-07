@@ -1,4 +1,4 @@
-// main.cpp
+// test_serial.cpp
 #include "Communications.hpp"
 #include <iostream>
 #include <thread>

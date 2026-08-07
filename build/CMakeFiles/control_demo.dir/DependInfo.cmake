@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/huhu233/rm2027/TorqueController/src/yaw_control.cpp" "CMakeFiles/yaw_control.dir/src/yaw_control.cpp.o" "gcc" "CMakeFiles/yaw_control.dir/src/yaw_control.cpp.o.d"
+  "/home/huhu233/rm2027/TorqueController/src/control_demo.cpp" "CMakeFiles/control_demo.dir/src/control_demo.cpp.o" "gcc" "CMakeFiles/control_demo.dir/src/control_demo.cpp.o.d"
   )
 
 # Targets to which this target links.
