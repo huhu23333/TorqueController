@@ -114,7 +114,7 @@ def draw_info(surf, data, target_yaw, target_pitch, yaw_torque, mode, fps, send_
 
     imu = data.imu_packet; mcu = data.mcu_packet
     mode_names = {0: "RELATIVE (click lock)", 1: "ABSOLUTE (box)"}
-    t(f"FPS: {fps:.0f}  |  Mode: {mode_names.get(mode, '?')}  |  [TAB:切换 ESC:退出]")
+    t(f"FPS: {fps:.0f}  |  Mode: {mode_names.get(mode, '?')}  |  [TAB:switch ESC:quit R:reset]")
     t(f"IMU Yaw: {imu.euler_yaw:7.3f} rad ({math.degrees(imu.euler_yaw):6.1f}°)  |  Pitch: {imu.euler_pitch:.3f}")
     t(f"Target  Yaw: {target_yaw:7.3f} rad ({math.degrees(target_yaw):6.1f}°)  |  Pitch: {target_pitch:.3f}")
     t(f"MCU Pitch: {mcu.pitch_angle:.3f}  |  Yaw Torque: {yaw_torque:+5.3f}")
