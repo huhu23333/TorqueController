@@ -307,8 +307,8 @@ CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o: ../src/pitch_calib
   /usr/include/c++/11/pstl/glue_algorithm_defs.h \
   /usr/include/c++/11/pstl/execution_defs.h \
   ../include/Protocol.hpp \
-  ../include/CRC.h \
   /usr/include/c++/11/cstddef \
+  ../include/CRC.h \
   /usr/include/c++/11/iomanip \
   /usr/include/c++/11/locale \
   /usr/include/c++/11/bits/locale_facets_nonio.h \

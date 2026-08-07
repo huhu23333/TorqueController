@@ -42,4 +42,5 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/communication.dir/DependInfo.cmake"
   "CMakeFiles/test_serial.dir/DependInfo.cmake"
   "CMakeFiles/pitch_calibration.dir/DependInfo.cmake"
+  "CMakeFiles/yaw_control.dir/DependInfo.cmake"
   )

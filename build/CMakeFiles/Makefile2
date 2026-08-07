@@ -66,6 +66,7 @@ CMAKE_BINARY_DIR = /home/huhu233/rm2027/TorqueController/build
 all: CMakeFiles/communication.dir/all
 all: CMakeFiles/test_serial.dir/all
 all: CMakeFiles/pitch_calibration.dir/all
+all: CMakeFiles/yaw_control.dir/all
 .PHONY : all
 
 # The main recursive "preinstall" target.
@@ -76,6 +77,7 @@ preinstall:
 clean: CMakeFiles/communication.dir/clean
 clean: CMakeFiles/test_serial.dir/clean
 clean: CMakeFiles/pitch_calibration.dir/clean
+clean: CMakeFiles/yaw_control.dir/clean
 .PHONY : clean
 
 #=============================================================================
@@ -85,12 +87,12 @@ clean: CMakeFiles/pitch_calibration.dir/clean
 CMakeFiles/communication.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=1,2 "Built target communication"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=1,2,3 "Built target communication"
 .PHONY : CMakeFiles/communication.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/communication.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 2
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 3
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/communication.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 0
 .PHONY : CMakeFiles/communication.dir/rule
@@ -111,12 +113,12 @@ CMakeFiles/communication.dir/clean:
 CMakeFiles/test_serial.dir/all: CMakeFiles/communication.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=5,6 "Built target test_serial"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=6,7 "Built target test_serial"
 .PHONY : CMakeFiles/test_serial.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/test_serial.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 4
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 5
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/test_serial.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 0
 .PHONY : CMakeFiles/test_serial.dir/rule
@@ -137,12 +139,12 @@ CMakeFiles/test_serial.dir/clean:
 CMakeFiles/pitch_calibration.dir/all: CMakeFiles/communication.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=3,4 "Built target pitch_calibration"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=4,5 "Built target pitch_calibration"
 .PHONY : CMakeFiles/pitch_calibration.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/pitch_calibration.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 4
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 5
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/pitch_calibration.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 0
 .PHONY : CMakeFiles/pitch_calibration.dir/rule
@@ -155,6 +157,32 @@ pitch_calibration: CMakeFiles/pitch_calibration.dir/rule
 CMakeFiles/pitch_calibration.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/clean
 .PHONY : CMakeFiles/pitch_calibration.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/yaw_control.dir
+
+# All Build rule for target.
+CMakeFiles/yaw_control.dir/all: CMakeFiles/communication.dir/all
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yaw_control.dir/build.make CMakeFiles/yaw_control.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yaw_control.dir/build.make CMakeFiles/yaw_control.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=8,9 "Built target yaw_control"
+.PHONY : CMakeFiles/yaw_control.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/yaw_control.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 5
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/yaw_control.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 0
+.PHONY : CMakeFiles/yaw_control.dir/rule
+
+# Convenience name for target.
+yaw_control: CMakeFiles/yaw_control.dir/rule
+.PHONY : yaw_control
+
+# clean rule for target.
+CMakeFiles/yaw_control.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yaw_control.dir/build.make CMakeFiles/yaw_control.dir/clean
+.PHONY : CMakeFiles/yaw_control.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

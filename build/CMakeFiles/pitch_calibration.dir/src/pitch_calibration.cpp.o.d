@@ -251,9 +251,9 @@ CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o: \
  /usr/include/c++/11/pstl/glue_algorithm_defs.h \
  /usr/include/c++/11/pstl/execution_defs.h \
  /home/huhu233/rm2027/TorqueController/include/Protocol.hpp \
+ /usr/include/c++/11/cstddef \
  /home/huhu233/rm2027/TorqueController/include/CRC.h \
- /usr/include/c++/11/cstddef /usr/include/c++/11/iomanip \
- /usr/include/c++/11/locale \
+ /usr/include/c++/11/iomanip /usr/include/c++/11/locale \
  /usr/include/c++/11/bits/locale_facets_nonio.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/time_members.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/messages_members.h \

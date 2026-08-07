@@ -129,8 +129,6 @@ LinearFit PitchCalibrator::fitLinear(const std::vector<DataPoint>& pts) const {
 }
 
 void PitchCalibrator::run() {
-    serial_.startWorker();
-
     // ── Step 1: 测量两端点 ──
     std::cout << "\n========== Step 1: 测量两端点 ==========\n";
     std::cout << "x_min = " << x_min_ << ", x_max = " << x_max_ << "\n";

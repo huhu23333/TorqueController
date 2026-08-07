@@ -83,17 +83,33 @@ CMakeFiles/communication.dir/src/CRC.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/communication.dir/src/CRC.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huhu233/rm2027/TorqueController/src/CRC.cpp -o CMakeFiles/communication.dir/src/CRC.cpp.s
 
+CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.o: CMakeFiles/communication.dir/flags.make
+CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.o: ../src/McuDataPreprocessor.cpp
+CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.o: CMakeFiles/communication.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.o -MF CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.o.d -o CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.o -c /home/huhu233/rm2027/TorqueController/src/McuDataPreprocessor.cpp
+
+CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/huhu233/rm2027/TorqueController/src/McuDataPreprocessor.cpp > CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.i
+
+CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/huhu233/rm2027/TorqueController/src/McuDataPreprocessor.cpp -o CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.s
+
 # Object files for target communication
 communication_OBJECTS = \
-"CMakeFiles/communication.dir/src/CRC.cpp.o"
+"CMakeFiles/communication.dir/src/CRC.cpp.o" \
+"CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.o"
 
 # External object files for target communication
 communication_EXTERNAL_OBJECTS =
 
 libcommunication.a: CMakeFiles/communication.dir/src/CRC.cpp.o
+libcommunication.a: CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.o
 libcommunication.a: CMakeFiles/communication.dir/build.make
 libcommunication.a: CMakeFiles/communication.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX static library libcommunication.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX static library libcommunication.a"
 	$(CMAKE_COMMAND) -P CMakeFiles/communication.dir/cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/communication.dir/link.txt --verbose=$(VERBOSE)
 

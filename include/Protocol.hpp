@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <cstddef>
 
 // ============================================================================
 // MCU (电控) 通信协议
@@ -18,7 +19,7 @@ struct SendPacket
     uint8_t data_size = 10;             // auto_aim_enable(1) + pitch_target_angle(4) + yaw_torque(4) + fire(1)
     uint8_t auto_aim_enable;            // 和之前的reset相反
     float pitch_target_angle;           // -pi/2 ~ pi/2
-    float yaw_torque;                   // 单位要测完之后定
+    float yaw_torque;                   // -1.0 ~ 1.0
     uint8_t fire;
     uint8_t crc8;
 };

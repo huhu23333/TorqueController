@@ -13,6 +13,7 @@ endif()
 # 通信库源文件（CRC 为核心，模板类为 header-only）
 set(COMMUNICATION_SOURCES
     src/CRC.cpp
+    src/McuDataPreprocessor.cpp
 )
 
 # 通信库头文件
@@ -21,6 +22,7 @@ set(COMMUNICATION_HEADERS
     include/SerialProtocol.hpp
     include/Protocol.hpp
     include/Communications.hpp
+    include/McuDataPreprocessor.hpp
 )
 
 # 构建通信库
@@ -38,3 +40,7 @@ target_link_libraries(test_serial PRIVATE communication)
 # 构建 Pitch 轴标定程序
 add_executable(pitch_calibration src/pitch_calibration.cpp)
 target_link_libraries(pitch_calibration PRIVATE communication)
+
+# 构建 Yaw 轴 PID 闭环控制程序
+add_executable(yaw_control src/yaw_control.cpp)
+target_link_libraries(yaw_control PRIVATE communication)

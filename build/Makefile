@@ -155,6 +155,19 @@ pitch_calibration/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/build
 .PHONY : pitch_calibration/fast
 
+#=============================================================================
+# Target rules for targets named yaw_control
+
+# Build rule for target.
+yaw_control: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 yaw_control
+.PHONY : yaw_control
+
+# fast build rule for target.
+yaw_control/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yaw_control.dir/build.make CMakeFiles/yaw_control.dir/build
+.PHONY : yaw_control/fast
+
 src/CRC.o: src/CRC.cpp.o
 .PHONY : src/CRC.o
 
@@ -178,6 +191,30 @@ src/CRC.s: src/CRC.cpp.s
 src/CRC.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/CRC.cpp.s
 .PHONY : src/CRC.cpp.s
+
+src/McuDataPreprocessor.o: src/McuDataPreprocessor.cpp.o
+.PHONY : src/McuDataPreprocessor.o
+
+# target to build an object file
+src/McuDataPreprocessor.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.o
+.PHONY : src/McuDataPreprocessor.cpp.o
+
+src/McuDataPreprocessor.i: src/McuDataPreprocessor.cpp.i
+.PHONY : src/McuDataPreprocessor.i
+
+# target to preprocess a source file
+src/McuDataPreprocessor.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.i
+.PHONY : src/McuDataPreprocessor.cpp.i
+
+src/McuDataPreprocessor.s: src/McuDataPreprocessor.cpp.s
+.PHONY : src/McuDataPreprocessor.s
+
+# target to generate assembly for a file
+src/McuDataPreprocessor.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.s
+.PHONY : src/McuDataPreprocessor.cpp.s
 
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
@@ -227,6 +264,30 @@ src/pitch_calibration.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.s
 .PHONY : src/pitch_calibration.cpp.s
 
+src/yaw_control.o: src/yaw_control.cpp.o
+.PHONY : src/yaw_control.o
+
+# target to build an object file
+src/yaw_control.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yaw_control.dir/build.make CMakeFiles/yaw_control.dir/src/yaw_control.cpp.o
+.PHONY : src/yaw_control.cpp.o
+
+src/yaw_control.i: src/yaw_control.cpp.i
+.PHONY : src/yaw_control.i
+
+# target to preprocess a source file
+src/yaw_control.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yaw_control.dir/build.make CMakeFiles/yaw_control.dir/src/yaw_control.cpp.i
+.PHONY : src/yaw_control.cpp.i
+
+src/yaw_control.s: src/yaw_control.cpp.s
+.PHONY : src/yaw_control.s
+
+# target to generate assembly for a file
+src/yaw_control.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yaw_control.dir/build.make CMakeFiles/yaw_control.dir/src/yaw_control.cpp.s
+.PHONY : src/yaw_control.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -238,15 +299,22 @@ help:
 	@echo "... communication"
 	@echo "... pitch_calibration"
 	@echo "... test_serial"
+	@echo "... yaw_control"
 	@echo "... src/CRC.o"
 	@echo "... src/CRC.i"
 	@echo "... src/CRC.s"
+	@echo "... src/McuDataPreprocessor.o"
+	@echo "... src/McuDataPreprocessor.i"
+	@echo "... src/McuDataPreprocessor.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
 	@echo "... src/pitch_calibration.o"
 	@echo "... src/pitch_calibration.i"
 	@echo "... src/pitch_calibration.s"
+	@echo "... src/yaw_control.o"
+	@echo "... src/yaw_control.i"
+	@echo "... src/yaw_control.s"
 .PHONY : help
 
 

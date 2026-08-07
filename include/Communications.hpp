@@ -15,12 +15,12 @@
 
 // 电控（MCU）：选择不是 IMU 的串口
 inline bool mcuPortSelector(const std::string& product_info) {
-    return product_info != "STM32 Virtual ComPort MyIMU";
+    return product_info != "AutoAim_IMU_Com";
 }
 
 // IMU：选择是 IMU 的串口
 inline bool imuPortSelector(const std::string& product_info) {
-    return product_info == "STM32 Virtual ComPort MyIMU";
+    return product_info == "AutoAim_IMU_Com";
 }
 
 // ── 具体通信类型别名 ──

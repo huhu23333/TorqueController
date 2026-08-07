@@ -1,2 +1,2 @@
-/usr/bin/ar qc libcommunication.a CMakeFiles/communication.dir/src/CRC.cpp.o
+/usr/bin/ar qc libcommunication.a CMakeFiles/communication.dir/src/CRC.cpp.o CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.o
 /usr/bin/ranlib libcommunication.a

@@ -44,9 +44,6 @@ int main() {
 
     McuCommunication serial(onReceive);
 
-    // 启动接收线程
-    serial.startWorker();
-
     std::cout << "Sending packets... (false, 0, 0, false)" << std::endl;
     std::cout << "Press Ctrl+C to exit." << std::endl;
 
@@ -70,8 +67,6 @@ int main() {
     }
 
     std::cout << "\nExiting... Total packets sent: " << send_count << std::endl;
-    
-    serial.stopWorker();
 
     return 0;
 }

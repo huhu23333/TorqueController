@@ -66,7 +66,7 @@ public:
     // 帧最小长度 = 前导 + data_size 字段 + CRC
     static constexpr size_t FRAME_MIN_SIZE  = PREAMBLE_SIZE + 1 + CRC_SIZE;
 
-    SerialProtocol(std::function<void(const ReceivePacketT&)> callback);
+    SerialProtocol(std::function<void(const ReceivePacketT&)> callback, bool auto_start = true);
     ~SerialProtocol();
     void startWorker();
     void stopWorker();
@@ -76,11 +76,8 @@ private:
     static constexpr size_t BUFFER_SIZE     = 1024;
     static constexpr size_t MAX_FRAME_LENGTH = 256;
 
-    // 从默认 ReceivePacketT 的前 PREAMBLE_SIZE 字节提取前导值
-    static const uint8_t* preambleBytes() {
-        static const ReceivePacketT dflt{};
-        return reinterpret_cast<const uint8_t*>(&dflt);
-    }
+    // 前导序列：构造时从默认 ReceivePacketT 的前 PREAMBLE_SIZE 字节提取并保存
+    std::array<uint8_t, PREAMBLE_SIZE> preamble_bytes_;
 
     int fd_;
     std::mutex fd_mutex_;
@@ -109,12 +106,20 @@ private:
 // ============================================================================
 
 template <typename S, typename R, auto C, auto P, size_t L>
-SerialProtocol<S, R, C, P, L>::SerialProtocol(std::function<void(const R&)> callback)
+SerialProtocol<S, R, C, P, L>::SerialProtocol(std::function<void(const R&)> callback, bool auto_start)
     : serialDataCallback(callback), fd_(-1)
 {
+    // 从默认 ReceivePacketT 提取前导序列保存到成员变量
+    const R dflt{};
+    const uint8_t* src = reinterpret_cast<const uint8_t*>(&dflt);
+    std::copy_n(src, PREAMBLE_SIZE, preamble_bytes_.begin());
+
     initializeSerial();
     last_reconnect_time = std::chrono::steady_clock::now();
     last_received_time = std::chrono::steady_clock::now();
+    if (auto_start) {
+        startWorker();
+    }
 }
 
 template <typename S, typename R, auto C, auto P, size_t L>
@@ -245,7 +250,7 @@ void SerialProtocol<S, R, C, P, L>::processBuffer() {
         while (header_pos + PREAMBLE_SIZE <= buffer_index_ && header_pos < 128) {
             bool match = true;
             for (size_t k = 0; k < PREAMBLE_SIZE; ++k)
-                if (buffer_[header_pos + k] != preambleBytes()[k]) { match = false; break; }
+                if (buffer_[header_pos + k] != preamble_bytes_[k]) { match = false; break; }
             if (match) { found_header = true; break; }
             header_pos++;
         }
