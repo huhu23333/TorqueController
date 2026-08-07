@@ -124,7 +124,6 @@ def main():
     print("Ready.")
 
     pid = PidController(PID_KP, PID_KI, PID_KD, PID_OUT_MIN, PID_OUT_MAX)
-    sample_idx = 0
 
     def send_zero():
         pkt = McuSendPacket(auto_aim_enable=1, pitch_target_angle=0.0, yaw_torque=0.0, fire=0)
@@ -134,7 +133,10 @@ def main():
         while True:
             targets = random_target_sequence(all_targets)
             first_target = float(targets[0])
-            print(f"\n=== Sample {sample_idx} === first_target={first_target:.3f} rad")
+
+            # 采样开始时间戳作为文件名
+            ts = int(time.time())
+            print(f"\n=== Sample {ts} === first_target={first_target:.3f} rad")
 
             # ── 预置：PID 跟踪 first_target HOLD_TIME 秒 ──
             print(f"  Settling at target={first_target:.3f} for {HOLD_TIME}s...")
@@ -187,14 +189,13 @@ def main():
                 yaw_log.append(obs_yaw)
                 gz_log.append(obs_gz)
 
-            save_path = os.path.join(SAVE_DIR, f"sample_{sample_idx:04d}.npz")
+            save_path = os.path.join(SAVE_DIR, f"sample_{ts}.npz")
             np.savez(save_path,
                      target=targets,
                      torque=np.array(torque_log, dtype=np.float32),
                      yaw=np.array(yaw_log, dtype=np.float64),
                      gz=np.array(gz_log, dtype=np.float64))
             print(f"  Saved: {save_path}")
-            sample_idx += 1
 
     except KeyboardInterrupt:
         print("\nInterrupted.")
