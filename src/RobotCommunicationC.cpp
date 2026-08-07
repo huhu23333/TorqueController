@@ -6,8 +6,21 @@
 #include <new>
 
 // ============================================================================
-// 编译期验证：C 结构体与 C++ 结构体内存布局一致
+// 编译期验证：C 结构体与 C++ 结构体逐字段偏移一致
 // ============================================================================
+#define ASSERT_OFFSET(CType, CppType, field) \
+    static_assert(offsetof(CType, field) == offsetof(CppType, field), "offset mismatch: " #field)
+
+ASSERT_OFFSET(McuSendPacket_C, mcu::SendPacket, frame_header1);
+ASSERT_OFFSET(McuSendPacket_C, mcu::SendPacket, frame_header2);
+ASSERT_OFFSET(McuSendPacket_C, mcu::SendPacket, protocol_version);
+ASSERT_OFFSET(McuSendPacket_C, mcu::SendPacket, data_size);
+ASSERT_OFFSET(McuSendPacket_C, mcu::SendPacket, auto_aim_enable);
+ASSERT_OFFSET(McuSendPacket_C, mcu::SendPacket, pitch_target_angle);
+ASSERT_OFFSET(McuSendPacket_C, mcu::SendPacket, yaw_torque);
+ASSERT_OFFSET(McuSendPacket_C, mcu::SendPacket, fire);
+ASSERT_OFFSET(McuSendPacket_C, mcu::SendPacket, crc8);
+
 static_assert(sizeof(McuSendPacket_C)    == sizeof(mcu::SendPacket),    "McuSendPacket size mismatch");
 static_assert(sizeof(McuReceivePacket_C) == sizeof(mcu::ReceivePacket), "McuReceivePacket size mismatch");
 static_assert(sizeof(ImuSendPacket_C)    == sizeof(imu::SendPacket),    "ImuSendPacket size mismatch");
@@ -67,19 +80,20 @@ RobotLatestData_C robot_comm_get_latest_data(RobotCommHandle* handle) {
     return result;
 }
 
-bool robot_comm_send_to_mcu(RobotCommHandle* handle, McuSendPacket_C packet) {
-    if (!handle) return false;
+bool robot_comm_send_to_mcu(RobotCommHandle* handle, const McuSendPacket_C* packet) {
+    if (!handle || !packet) return false;
 
     mcu::SendPacket cpp_pkt;
-    copyToCpp(packet, cpp_pkt);
+    copyToCpp(*packet, cpp_pkt);
+
     return handle->impl.sendToMcu(cpp_pkt);
 }
 
-bool robot_comm_send_to_imu(RobotCommHandle* handle, ImuSendPacket_C packet) {
-    if (!handle) return false;
+bool robot_comm_send_to_imu(RobotCommHandle* handle, const ImuSendPacket_C* packet) {
+    if (!handle || !packet) return false;
 
     imu::SendPacket cpp_pkt;
-    copyToCpp(packet, cpp_pkt);
+    copyToCpp(*packet, cpp_pkt);
     return handle->impl.sendToImu(cpp_pkt);
 }
 

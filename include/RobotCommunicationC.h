@@ -110,10 +110,10 @@ void robot_comm_destroy(RobotCommHandle* handle);
 RobotLatestData_C robot_comm_get_latest_data(RobotCommHandle* handle);
 
 // 发送 MCU 数据（发送前做预处理）
-bool robot_comm_send_to_mcu(RobotCommHandle* handle, McuSendPacket_C packet);
+bool robot_comm_send_to_mcu(RobotCommHandle* handle, const McuSendPacket_C* packet);
 
 // 发送 IMU 数据（无预处理）
-bool robot_comm_send_to_imu(RobotCommHandle* handle, ImuSendPacket_C packet);
+bool robot_comm_send_to_imu(RobotCommHandle* handle, const ImuSendPacket_C* packet);
 
 // 停止通信
 void robot_comm_stop(RobotCommHandle* handle);
