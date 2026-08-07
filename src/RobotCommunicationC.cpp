@@ -21,6 +21,9 @@ ASSERT_OFFSET(McuSendPacket_C, mcu::SendPacket, yaw_torque);
 ASSERT_OFFSET(McuSendPacket_C, mcu::SendPacket, fire);
 ASSERT_OFFSET(McuSendPacket_C, mcu::SendPacket, crc8);
 
+ASSERT_OFFSET(McuReceivePacket_C, mcu::ReceivePacket, auto_aim_switch);
+ASSERT_OFFSET(McuReceivePacket_C, mcu::ReceivePacket, yaw_temperature);
+
 static_assert(sizeof(McuSendPacket_C)    == sizeof(mcu::SendPacket),    "McuSendPacket size mismatch");
 static_assert(sizeof(McuReceivePacket_C) == sizeof(mcu::ReceivePacket), "McuReceivePacket size mismatch");
 static_assert(sizeof(ImuSendPacket_C)    == sizeof(imu::SendPacket),    "ImuSendPacket size mismatch");

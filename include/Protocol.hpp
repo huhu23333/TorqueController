@@ -40,6 +40,7 @@ struct ReceivePacket
     uint8_t mark;                       // 原递增循环标志位
     uint8_t color;                      // 原颜色标志位
     uint8_t auto_aim_switch;            // 电控的自瞄开关
+    uint8_t yaw_temperature;            // yaw轴电机温度
     uint8_t crc8;
 };
 #pragma pack(pop)

@@ -47,7 +47,7 @@ class McuReceivePacket(Structure):
         ("yaw_angle",         c_float), ("yaw_omega",         c_float),
         ("chassis_imu_yaw",   c_float), ("chassis_imu_omega", c_float),
         ("mark",              c_uint8), ("color",             c_uint8),
-        ("auto_aim_switch",   c_uint8), ("crc8",              c_uint8),
+        ("auto_aim_switch",   c_uint8), ("yaw_temperature",   c_uint8), ("crc8",              c_uint8),
     ]
 
 
@@ -126,5 +126,5 @@ class RobotCommunication:
 
 # ── 启动时验证 ctypes 布局 ──
 assert ctypes.sizeof(McuSendPacket) == 15, f"McuSendPacket size mismatch: {ctypes.sizeof(McuSendPacket)}"
-assert ctypes.sizeof(McuReceivePacket) == 32, f"McuReceivePacket size mismatch: {ctypes.sizeof(McuReceivePacket)}"
+assert ctypes.sizeof(McuReceivePacket) == 33, f"McuReceivePacket size mismatch: {ctypes.sizeof(McuReceivePacket)}"
 assert ctypes.sizeof(ImuReceivePacket) == 60, f"ImuReceivePacket size mismatch: {ctypes.sizeof(ImuReceivePacket)}"

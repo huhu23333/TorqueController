@@ -52,6 +52,7 @@ typedef struct {
     uint8_t mark;
     uint8_t color;
     uint8_t auto_aim_switch;
+    uint8_t yaw_temperature;      // yaw轴电机温度
     uint8_t crc8;
 } McuReceivePacket_C;
 

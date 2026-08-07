@@ -20,14 +20,18 @@ from torque_controller import RobotCommunication, McuSendPacket
 DT             = 0.01
 DT_NS          = int(DT * 1e9)
 SAMPLE_LEN     = 300
-HOLD_TIME      = 2.0
-ZERO_TIME      = 1.0
 SEED = 42
 np.random.seed(SEED)
 
 PID_KP, PID_KI, PID_KD = 2.0, 0.1, 0.2
 PID_OUT_MIN, PID_OUT_MAX = -1.0, 1.0
 TWO_PI = 2.0 * math.pi
+
+# 过热检测
+OVERHEAT_ACTION = "wait"   # "exit" 或 "wait"
+OVERHEAT_WAIT_S = 600      # 等待秒数（默认 10 分钟）
+OVERHEAT_DEG    = 20.0     # 1s 末与 2s 末角度差 < 此值判过热
+OVERHEAT_TEMP   = 55       # 温度 ≥ 此值判过热
 
 TARGET_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "targets")
 SAVE_DIR   = os.path.join(os.path.dirname(__file__), "..", "..", "data", "sysid_samples")
@@ -124,45 +128,90 @@ def main():
     print("Ready.")
 
     pid = PidController(PID_KP, PID_KI, PID_KD, PID_OUT_MIN, PID_OUT_MAX)
+    last_saved = None
+    overheat_deg = math.radians(OVERHEAT_DEG)
+
+    def check_temp(data):
+        mcu = data.mcu_packet
+        return mcu.yaw_temperature if data.mcu_valid else 0
 
     def send_zero():
         pkt = McuSendPacket(auto_aim_enable=1, pitch_target_angle=0.0, yaw_torque=0.0, fire=0)
         robot.send_to_mcu(pkt)
 
+    def pid_to_target(target, duration):
+        pid.reset()
+        t0 = time.perf_counter_ns()
+        end_yaw = 0.0
+        while time.perf_counter_ns() - t0 < duration * 1e9:
+            data = robot.get_latest_data()
+            if check_temp(data) >= OVERHEAT_TEMP:
+                return end_yaw, True
+            obs_yaw = 0.0
+            if data.imu_valid:
+                obs_yaw = float(data.imu_packet.euler_yaw)
+                err = math.remainder(target - obs_yaw, TWO_PI)
+                torque = pid.update(err, DT)
+            else:
+                torque = 0.0
+            pkt = McuSendPacket(auto_aim_enable=1, pitch_target_angle=0.0,
+                                yaw_torque=torque, fire=0)
+            robot.send_to_mcu(pkt)
+            time.sleep(DT)
+            end_yaw = obs_yaw
+        return end_yaw, False
+
+    def handle_overheat(reason):
+        if last_saved and os.path.exists(last_saved):
+            os.remove(last_saved)
+            print(f"  Removed previous sample: {last_saved}")
+        print(f"  OVERHEAT ({reason}), cooling down {OVERHEAT_WAIT_S}s...")
+        send_zero()
+        for remaining in range(int(OVERHEAT_WAIT_S) - 1, -1, -1):
+            send_zero()
+            temp = check_temp(robot.get_latest_data())
+            print(f"  Cooling... temp={temp}°C  remaining={remaining}s  reason={reason}")
+            time.sleep(1.0)
+        if OVERHEAT_ACTION == "exit":
+            print("  Exiting.")
+            sys.exit(1)
+        print("  Resuming...")
+
     try:
         while True:
             targets = random_target_sequence(all_targets)
             first_target = float(targets[0])
-
-            # 采样开始时间戳作为文件名
             ts = int(time.time())
             print(f"\n=== Sample {ts} === first_target={first_target:.3f} rad")
+            temp = check_temp(robot.get_latest_data())
+            print(f"  Current temp: {temp}°C")
 
-            # ── 预置：PID 跟踪 first_target HOLD_TIME 秒 ──
-            print(f"  Settling at target={first_target:.3f} for {HOLD_TIME}s...")
-            pid.reset()
-            t0 = time.perf_counter_ns()
-            while time.perf_counter_ns() - t0 < HOLD_TIME * 1e9:
-                data = robot.get_latest_data()
-                if data.imu_valid:
-                    obs_yaw = float(data.imu_packet.euler_yaw)
-                    err = math.remainder(first_target - obs_yaw, TWO_PI)
-                    torque = pid.update(err, DT)
-                else:
-                    torque = 0.0
-                pkt = McuSendPacket(auto_aim_enable=1, pitch_target_angle=0.0,
-                                    yaw_torque=torque, fire=0)
-                robot.send_to_mcu(pkt)
-                time.sleep(DT)
+            # ── 1s: PID 到 first_target + 30° ──
+            target_plus = first_target + math.radians(30)
+            print(f"  PID to {math.degrees(target_plus):.1f}° for 1s...")
+            yaw1, oh = pid_to_target(target_plus, 1.0)
+            if oh: handle_overheat(f"temp>={OVERHEAT_TEMP}"); continue
 
-            # ── 零力矩 ZERO_TIME 秒 ──
-            print(f"  Zero torque for {ZERO_TIME}s...")
+            # ── 1s: PID 到 first_target ──
+            print(f"  PID to {math.degrees(first_target):.1f}° for 1s...")
+            yaw2, oh = pid_to_target(first_target, 1.0)
+            if oh: handle_overheat(f"temp>={OVERHEAT_TEMP}"); continue
+
+            # ── 过热检测（动作幅度） ──
+            diff = abs(math.remainder(yaw1 - yaw2 + math.pi, TWO_PI) - math.pi)
+            print(f"  yaw1={math.degrees(yaw1):.1f}° yaw2={math.degrees(yaw2):.1f}° diff={math.degrees(diff):.1f}°")
+            if diff < overheat_deg:
+                handle_overheat(f"motion<{OVERHEAT_DEG}°")
+                continue
+
+            # ── 1s: 零力矩 ──
+            print(f"  Zero torque for 1s...")
             t0 = time.perf_counter_ns()
-            while time.perf_counter_ns() - t0 < ZERO_TIME * 1e9:
+            while time.perf_counter_ns() - t0 < 1e9:
                 send_zero()
                 time.sleep(DT)
 
-            # ── 采样 3s @ 100Hz 精确时序 ──
+            # ── 采样 3s ──
             print(f"  Sampling {SAMPLE_LEN} steps...")
             torque_log, yaw_log, gz_log = [], [], []
             sample_start_ns = time.perf_counter_ns()
@@ -171,8 +220,10 @@ def main():
             for step in range(SAMPLE_LEN):
                 target_ns = sample_start_ns + step * DT_NS
                 busy_wait_until(target_ns)
-
                 data = robot.get_latest_data()
+                if check_temp(data) >= OVERHEAT_TEMP:
+                    handle_overheat(f"temp>={OVERHEAT_TEMP}")
+                    break
                 if data.imu_valid:
                     obs_yaw = float(data.imu_packet.euler_yaw)
                     obs_gz  = float(data.imu_packet.gz)
@@ -180,11 +231,9 @@ def main():
                     torque = pid.update(err, DT)
                 else:
                     obs_yaw = 0.0; obs_gz = 0.0; torque = 0.0
-
                 pkt = McuSendPacket(auto_aim_enable=1, pitch_target_angle=0.0,
                                     yaw_torque=torque, fire=0)
                 robot.send_to_mcu(pkt)
-
                 torque_log.append(torque)
                 yaw_log.append(obs_yaw)
                 gz_log.append(obs_gz)
@@ -196,6 +245,7 @@ def main():
                      yaw=np.array(yaw_log, dtype=np.float64),
                      gz=np.array(gz_log, dtype=np.float64))
             print(f"  Saved: {save_path}")
+            last_saved = save_path
 
     except KeyboardInterrupt:
         print("\nInterrupted.")

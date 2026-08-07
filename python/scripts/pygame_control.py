@@ -120,7 +120,7 @@ def draw_info(surf, data, target_yaw, target_pitch, yaw_torque, mode, fps, send_
     t(f"Target  Yaw: {target_yaw:7.3f} rad ({math.degrees(target_yaw):6.1f}°)  |  Pitch: {target_pitch:.3f}")
     t(f"MCU Pitch: {mcu.pitch_angle:.3f}  |  Yaw Torque: {yaw_torque:+5.3f}")
     t(f"IMU valid: {data.imu_valid}  |  MCU valid: {data.mcu_valid}  |  Send OK: {send_ok}")
-    t(f"MCU auto_aim_switch: {mcu.auto_aim_switch}  |  mark: {mcu.mark}  |  color: {mcu.color}")
+    t(f"MCU auto_aim_switch: {mcu.auto_aim_switch}  |  mark: {mcu.mark}  |  temp: {mcu.yaw_temperature}°C")
 
 
 def draw_control_box(surf, mx, my):
