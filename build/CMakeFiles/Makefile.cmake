@@ -42,5 +42,6 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/communication.dir/DependInfo.cmake"
   "CMakeFiles/test_serial.dir/DependInfo.cmake"
   "CMakeFiles/pitch_calibration.dir/DependInfo.cmake"
+  "CMakeFiles/robot_comm_c.dir/DependInfo.cmake"
   "CMakeFiles/control_demo.dir/DependInfo.cmake"
   )

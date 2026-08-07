@@ -156,6 +156,19 @@ pitch_calibration/fast:
 .PHONY : pitch_calibration/fast
 
 #=============================================================================
+# Target rules for targets named robot_comm_c
+
+# Build rule for target.
+robot_comm_c: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 robot_comm_c
+.PHONY : robot_comm_c
+
+# fast build rule for target.
+robot_comm_c/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/build
+.PHONY : robot_comm_c/fast
+
+#=============================================================================
 # Target rules for targets named control_demo
 
 # Build rule for target.
@@ -174,6 +187,7 @@ src/CRC.o: src/CRC.cpp.o
 # target to build an object file
 src/CRC.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/CRC.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/src/CRC.cpp.o
 .PHONY : src/CRC.cpp.o
 
 src/CRC.i: src/CRC.cpp.i
@@ -182,6 +196,7 @@ src/CRC.i: src/CRC.cpp.i
 # target to preprocess a source file
 src/CRC.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/CRC.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/src/CRC.cpp.i
 .PHONY : src/CRC.cpp.i
 
 src/CRC.s: src/CRC.cpp.s
@@ -190,6 +205,7 @@ src/CRC.s: src/CRC.cpp.s
 # target to generate assembly for a file
 src/CRC.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/CRC.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/src/CRC.cpp.s
 .PHONY : src/CRC.cpp.s
 
 src/McuDataPreprocessor.o: src/McuDataPreprocessor.cpp.o
@@ -198,6 +214,7 @@ src/McuDataPreprocessor.o: src/McuDataPreprocessor.cpp.o
 # target to build an object file
 src/McuDataPreprocessor.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/src/McuDataPreprocessor.cpp.o
 .PHONY : src/McuDataPreprocessor.cpp.o
 
 src/McuDataPreprocessor.i: src/McuDataPreprocessor.cpp.i
@@ -206,6 +223,7 @@ src/McuDataPreprocessor.i: src/McuDataPreprocessor.cpp.i
 # target to preprocess a source file
 src/McuDataPreprocessor.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/src/McuDataPreprocessor.cpp.i
 .PHONY : src/McuDataPreprocessor.cpp.i
 
 src/McuDataPreprocessor.s: src/McuDataPreprocessor.cpp.s
@@ -214,7 +232,32 @@ src/McuDataPreprocessor.s: src/McuDataPreprocessor.cpp.s
 # target to generate assembly for a file
 src/McuDataPreprocessor.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/communication.dir/build.make CMakeFiles/communication.dir/src/McuDataPreprocessor.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/src/McuDataPreprocessor.cpp.s
 .PHONY : src/McuDataPreprocessor.cpp.s
+
+src/RobotCommunicationC.o: src/RobotCommunicationC.cpp.o
+.PHONY : src/RobotCommunicationC.o
+
+# target to build an object file
+src/RobotCommunicationC.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/src/RobotCommunicationC.cpp.o
+.PHONY : src/RobotCommunicationC.cpp.o
+
+src/RobotCommunicationC.i: src/RobotCommunicationC.cpp.i
+.PHONY : src/RobotCommunicationC.i
+
+# target to preprocess a source file
+src/RobotCommunicationC.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/src/RobotCommunicationC.cpp.i
+.PHONY : src/RobotCommunicationC.cpp.i
+
+src/RobotCommunicationC.s: src/RobotCommunicationC.cpp.s
+.PHONY : src/RobotCommunicationC.s
+
+# target to generate assembly for a file
+src/RobotCommunicationC.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/src/RobotCommunicationC.cpp.s
+.PHONY : src/RobotCommunicationC.cpp.s
 
 src/control_demo.o: src/control_demo.cpp.o
 .PHONY : src/control_demo.o
@@ -299,6 +342,7 @@ help:
 	@echo "... communication"
 	@echo "... control_demo"
 	@echo "... pitch_calibration"
+	@echo "... robot_comm_c"
 	@echo "... test_serial"
 	@echo "... src/CRC.o"
 	@echo "... src/CRC.i"
@@ -306,6 +350,9 @@ help:
 	@echo "... src/McuDataPreprocessor.o"
 	@echo "... src/McuDataPreprocessor.i"
 	@echo "... src/McuDataPreprocessor.s"
+	@echo "... src/RobotCommunicationC.o"
+	@echo "... src/RobotCommunicationC.i"
+	@echo "... src/RobotCommunicationC.s"
 	@echo "... src/control_demo.o"
 	@echo "... src/control_demo.i"
 	@echo "... src/control_demo.s"

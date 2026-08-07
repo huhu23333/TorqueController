@@ -66,6 +66,7 @@ CMAKE_BINARY_DIR = /home/huhu233/rm2027/TorqueController/build
 all: CMakeFiles/communication.dir/all
 all: CMakeFiles/test_serial.dir/all
 all: CMakeFiles/pitch_calibration.dir/all
+all: CMakeFiles/robot_comm_c.dir/all
 all: CMakeFiles/control_demo.dir/all
 .PHONY : all
 
@@ -77,6 +78,7 @@ preinstall:
 clean: CMakeFiles/communication.dir/clean
 clean: CMakeFiles/test_serial.dir/clean
 clean: CMakeFiles/pitch_calibration.dir/clean
+clean: CMakeFiles/robot_comm_c.dir/clean
 clean: CMakeFiles/control_demo.dir/clean
 .PHONY : clean
 
@@ -113,7 +115,7 @@ CMakeFiles/communication.dir/clean:
 CMakeFiles/test_serial.dir/all: CMakeFiles/communication.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_serial.dir/build.make CMakeFiles/test_serial.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=8,9 "Built target test_serial"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=12,13 "Built target test_serial"
 .PHONY : CMakeFiles/test_serial.dir/all
 
 # Build rule for subdir invocation for target.
@@ -157,6 +159,32 @@ pitch_calibration: CMakeFiles/pitch_calibration.dir/rule
 CMakeFiles/pitch_calibration.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/pitch_calibration.dir/build.make CMakeFiles/pitch_calibration.dir/clean
 .PHONY : CMakeFiles/pitch_calibration.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/robot_comm_c.dir
+
+# All Build rule for target.
+CMakeFiles/robot_comm_c.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/huhu233/rm2027/TorqueController/build/CMakeFiles --progress-num=8,9,10,11 "Built target robot_comm_c"
+.PHONY : CMakeFiles/robot_comm_c.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/robot_comm_c.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 4
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/robot_comm_c.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/huhu233/rm2027/TorqueController/build/CMakeFiles 0
+.PHONY : CMakeFiles/robot_comm_c.dir/rule
+
+# Convenience name for target.
+robot_comm_c: CMakeFiles/robot_comm_c.dir/rule
+.PHONY : robot_comm_c
+
+# clean rule for target.
+CMakeFiles/robot_comm_c.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robot_comm_c.dir/build.make CMakeFiles/robot_comm_c.dir/clean
+.PHONY : CMakeFiles/robot_comm_c.dir/clean
 
 #=============================================================================
 # Target rules for target CMakeFiles/control_demo.dir

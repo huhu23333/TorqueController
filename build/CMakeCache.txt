@@ -198,6 +198,9 @@ UDEV_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libudev.so
 //Dependencies for the target
 communication_LIB_DEPENDS:STATIC=general;/usr/lib/x86_64-linux-gnu/libudev.so;
 
+//Dependencies for the target
+robot_comm_c_LIB_DEPENDS:STATIC=general;/usr/lib/x86_64-linux-gnu/libudev.so;
+
 
 ########################
 # INTERNAL cache entries

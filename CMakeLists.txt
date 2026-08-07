@@ -41,6 +41,17 @@ target_link_libraries(test_serial PRIVATE communication)
 add_executable(pitch_calibration src/pitch_calibration.cpp)
 target_link_libraries(pitch_calibration PRIVATE communication)
 
+# 构建 C API 动态库（供 Python ctypes 加载）
+add_library(robot_comm_c SHARED
+    src/RobotCommunicationC.cpp
+    ${COMMUNICATION_SOURCES}
+)
+target_include_directories(robot_comm_c PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(robot_comm_c PUBLIC ${UDEV_LIBRARY})
+
 # 构建控制演示程序
 add_executable(control_demo src/control_demo.cpp)
 target_link_libraries(control_demo PRIVATE communication)

@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -O3 -DNDEBUG -shared -Wl,-soname,librobot_comm_c.so -o librobot_comm_c.so CMakeFiles/robot_comm_c.dir/src/RobotCommunicationC.cpp.o CMakeFiles/robot_comm_c.dir/src/CRC.cpp.o CMakeFiles/robot_comm_c.dir/src/McuDataPreprocessor.cpp.o  /usr/lib/x86_64-linux-gnu/libudev.so 
