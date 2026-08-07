@@ -44,7 +44,14 @@ GRAY   = (80, 80, 80)
 DGRAY  = (40, 40, 40)
 GREEN  = (100, 200, 100)
 
+YELLOW = (220, 220, 60)
+
 TWO_PI = 2.0 * math.pi
+
+# 绝对模式控制框
+BOX_W, BOX_H = 400, 120
+BOX_X = (WINDOW_W - BOX_W) // 2
+BOX_Y = WINDOW_H - BOX_H - 20
 
 # ============================================================================
 # PID
@@ -97,7 +104,7 @@ def draw_angle_view(surf, cx, cy, target_angle, current_angle, title, scale=1.0)
     s = font.render(title, True, WHITE)
     surf.blit(s, (cx - s.get_width() // 2, cy + LINE_LEN + 10))
 
-def draw_info(surf, data, target_yaw, target_pitch, yaw_torque, mouse_locked, fps, send_ok):
+def draw_info(surf, data, target_yaw, target_pitch, yaw_torque, mode, fps, send_ok):
     font = pygame.font.SysFont(None, 20)
     y = 5
     def t(txt):
@@ -106,12 +113,34 @@ def draw_info(surf, data, target_yaw, target_pitch, yaw_torque, mouse_locked, fp
         surf.blit(s, (5, y)); y += 22
 
     imu = data.imu_packet; mcu = data.mcu_packet
-    t(f"FPS: {fps:.0f}  |  Mouse: {'LOCKED' if mouse_locked else 'free'}  |  [Click to lock, ESC to quit]")
+    mode_names = {0: "RELATIVE (click lock)", 1: "ABSOLUTE (box)"}
+    t(f"FPS: {fps:.0f}  |  Mode: {mode_names.get(mode, '?')}  |  [TAB:切换 ESC:退出]")
     t(f"IMU Yaw: {imu.euler_yaw:7.3f} rad ({math.degrees(imu.euler_yaw):6.1f}°)  |  Pitch: {imu.euler_pitch:.3f}")
     t(f"Target  Yaw: {target_yaw:7.3f} rad ({math.degrees(target_yaw):6.1f}°)  |  Pitch: {target_pitch:.3f}")
     t(f"MCU Pitch: {mcu.pitch_angle:.3f}  |  Yaw Torque: {yaw_torque:+5.3f}")
     t(f"IMU valid: {data.imu_valid}  |  MCU valid: {data.mcu_valid}  |  Send OK: {send_ok}")
     t(f"MCU auto_aim_switch: {mcu.auto_aim_switch}  |  mark: {mcu.mark}  |  color: {mcu.color}")
+
+
+def draw_control_box(surf, mx, my):
+    """绘制绝对模式控制框和十字准星"""
+    r = pygame.Rect(BOX_X, BOX_Y, BOX_W, BOX_H)
+    pygame.draw.rect(surf, GRAY, r, 1)
+    # 中心十字线
+    cx = BOX_X + BOX_W // 2; cy = BOX_Y + BOX_H // 2
+    pygame.draw.line(surf, DGRAY, (BOX_X, cy), (BOX_X + BOX_W, cy), 1)
+    pygame.draw.line(surf, DGRAY, (cx, BOX_Y), (cx, BOX_Y + BOX_H), 1)
+    # 标签
+    font = pygame.font.SysFont(None, 18)
+    s = font.render("yaw: L=+pi  R=-pi", True, GRAY)
+    surf.blit(s, (BOX_X, BOX_Y - 18))
+    s = font.render("pitch: up=+  down=-", True, GRAY)
+    surf.blit(s, (BOX_X + BOX_W - s.get_width(), BOX_Y + BOX_H + 2))
+    # 十字准星（钳位到框内）
+    cx_clamp = max(BOX_X, min(BOX_X + BOX_W, mx))
+    cy_clamp = max(BOX_Y, min(BOX_Y + BOX_H, my))
+    pygame.draw.line(surf, YELLOW, (cx_clamp - 10, cy_clamp), (cx_clamp + 10, cy_clamp), 2)
+    pygame.draw.line(surf, YELLOW, (cx_clamp, cy_clamp - 10), (cx_clamp, cy_clamp + 10), 2)
 
 # ============================================================================
 # 主循环
@@ -124,7 +153,6 @@ def main():
 
     # 通信
     robot = RobotCommunication()
-    # 等待数据
     print("Waiting for IMU & MCU data...")
     while True:
         data = robot.get_latest_data()
@@ -134,7 +162,7 @@ def main():
     print("Data received. Starting control loop.")
 
     pid = PidController(PID_KP, PID_KI, PID_KD, PID_OUT_MIN, PID_OUT_MAX)
-    mouse_locked = False
+    mode = 0                     # 0=相对(锁定)  1=绝对(框)
     target_yaw = 0.0
     target_pitch = 0.0
     pitch_min = math.radians(PITCH_MIN_DEG)
@@ -148,6 +176,8 @@ def main():
         dt = now - last_time
         last_time = now
 
+        mx, my = pygame.mouse.get_pos()
+
         # ── 事件处理 ──
         for evt in pygame.event.get():
             if evt.type == QUIT:
@@ -155,44 +185,58 @@ def main():
             elif evt.type == KEYDOWN:
                 if evt.key == K_ESCAPE:
                     running = False
-            elif evt.type == MOUSEBUTTONDOWN:
-                if not mouse_locked:
-                    mouse_locked = True
-                    pygame.mouse.set_visible(False)
-                    pygame.event.set_grab(True)
+                elif evt.key == K_TAB:
+                    # 切换模式
+                    if mode == 0:
+                        mode = 1
+                        pygame.mouse.set_visible(True)
+                        pygame.event.set_grab(False)
+                        pid.reset()
+                    else:
+                        mode = 0
+                elif evt.key == K_r:
+                    pid.reset()
+            elif evt.type == MOUSEBUTTONDOWN and mode == 0:
+                pygame.mouse.set_visible(False)
+                pygame.event.set_grab(True)
 
-        # ── 鼠标位移 → 目标角度 ──
-        if mouse_locked:
-            dx, dy = pygame.mouse.get_rel()
-            target_yaw   -= float(dx) * YAW_SENS     # 左移 dx<0 → yaw+
-            target_pitch -= float(dy) * PITCH_SENS   # 上移 dy<0 → pitch+
-            # yaw 归一化到 [-pi, pi]
-            target_yaw = math.fmod(target_yaw + math.pi, TWO_PI)
-            if target_yaw < 0: target_yaw += TWO_PI
-            target_yaw -= math.pi
-            # pitch 限位
-            if target_pitch > pitch_max: target_pitch = pitch_max
-            if target_pitch < pitch_min: target_pitch = pitch_min
+        # ── 目标角度 ──
+        if mode == 0:
+            # 相对模式：鼠标位移
+            if pygame.event.get_grab():
+                dx, dy = pygame.mouse.get_rel()
+                target_yaw   -= float(dx) * YAW_SENS
+                target_pitch -= float(dy) * PITCH_SENS
+        else:
+            # 绝对模式：鼠标在框内的位置
+            fx = (mx - BOX_X) / BOX_W          # 0..1, 左=0 右=1
+            fy = (my - BOX_Y) / BOX_H          # 0..1, 上=0 下=1
+            fx = max(0.0, min(1.0, fx))
+            fy = max(0.0, min(1.0, fy))
+            target_yaw   = (1.0 - fx) * TWO_PI - math.pi   # 左=+pi, 右=-pi
+            target_pitch = (1.0 - fy) * (pitch_max - pitch_min) + pitch_min  # 上=+, 下=-
+
+        # yaw 归一化 / pitch 限位
+        target_yaw = math.fmod(target_yaw + math.pi, TWO_PI)
+        if target_yaw < 0: target_yaw += TWO_PI
+        target_yaw -= math.pi
+        if target_pitch > pitch_max: target_pitch = pitch_max
+        if target_pitch < pitch_min: target_pitch = pitch_min
 
         # ── 获取数据 ──
         data = robot.get_latest_data()
 
-        # ── PID 计算 yaw torque ──
+        # ── PID ──
         yaw_torque = 0.0
-        obs_yaw = 0.0
-        err = 0.0
+        obs_yaw = 0.0; err = 0.0
         if data.imu_valid:
             obs_yaw = float(data.imu_packet.euler_yaw)
             err = math.remainder(target_yaw - obs_yaw, TWO_PI)
             yaw_torque = pid.update(err, dt)
 
         # ── 发送 ──
-        pkt = McuSendPacket(
-            auto_aim_enable=1,
-            pitch_target_angle=target_pitch,
-            yaw_torque=yaw_torque,
-            fire=0,
-        )
+        pkt = McuSendPacket(auto_aim_enable=1, pitch_target_angle=target_pitch,
+                            yaw_torque=yaw_torque, fire=0)
         ok = robot.send_to_mcu(pkt)
 
         # ── 绘制 ──
@@ -208,13 +252,19 @@ def main():
         draw_angle_view(screen, mid + mid // 2, WINDOW_H // 2,
                         target_pitch, cur_pitch, "Pitch  (R=target / B=current MCU)")
 
-        draw_info(screen, data, target_yaw, target_pitch, yaw_torque, mouse_locked,
+        if mode == 1:
+            draw_control_box(screen, mx, my)
+
+        draw_info(screen, data, target_yaw, target_pitch, yaw_torque, mode,
                   clock.get_fps(), ok)
 
         pygame.display.flip()
         clock.tick(100)
 
     # 清理
+    if pygame.event.get_grab():
+        pygame.event.set_grab(False)
+    pygame.mouse.set_visible(True)
     robot.stop()
     robot.close()
     pygame.quit()
