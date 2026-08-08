@@ -29,6 +29,7 @@ void onReceive(const mcu::ReceivePacket& packet) {
     std::cout << "  mark:               " << static_cast<int>(packet.mark) << std::endl;
     std::cout << "  color:              " << static_cast<int>(packet.color) << std::endl;
     std::cout << "  auto_aim_switch:    " << static_cast<int>(packet.auto_aim_switch) << std::endl;
+    std::cout << "  yaw_temperature:    " << static_cast<int>(packet.yaw_temperature) << " C" << std::endl;
     std::cout << "  crc8:               0x" << std::hex << std::uppercase 
               << static_cast<int>(packet.crc8) << std::dec << std::endl;
     std::cout << std::endl;
