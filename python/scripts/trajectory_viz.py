@@ -26,13 +26,13 @@ FPS = 100
 DT = 1.0 / FPS
 
 # 轨迹规划器参数
-MAX_VEL   = 12.0       # rad/s
-MAX_ACCEL = 20.0       # rad/s²
-MAX_JERK  = 80.0       # rad/s³
+MAX_VEL   = 30.0       # rad/s
+MAX_ACCEL = 50.0       # rad/s²
+MAX_JERK  = 2000.0       # rad/s³
 
 # 目标范围：鼠标横向 → 0 ~ 4π (两整圈)
-TARGET_MIN = 0.0
-TARGET_MAX = 4.0 * math.pi
+TARGET_MIN = -1.5 * math.pi 
+TARGET_MAX = 2.5 * math.pi
 
 # 角度视图参数
 CIRCLE_CX = 210
@@ -208,7 +208,7 @@ def main():
     clock = pygame.time.Clock()
 
     planner = TrajectoryPlanner(max_velocity=MAX_VEL, max_acceleration=MAX_ACCEL, max_jerk=MAX_JERK)
-    refined_planner = StepRefinementWrapper(planner.step, 10)
+    refined_planner = StepRefinementWrapper(planner.step, 1000)
 
     # 状态
     target_pos = 2.0 * math.pi       # 默认 1 圈
@@ -250,7 +250,7 @@ def main():
         # ── 鼠标 → 目标位置 ──
         mx, _ = pygame.mouse.get_pos()
         mx_clamped = max(0, min(WINDOW_W, mx))
-        target_pos = TARGET_MIN + (mx_clamped / WINDOW_W) * (TARGET_MAX - TARGET_MIN)
+        target_pos = TARGET_MIN + ((WINDOW_W - mx_clamped) / WINDOW_W) * (TARGET_MAX - TARGET_MIN)
 
         # ── 轨迹规划器迭代 ──
         current_pos, current_vel, current_acc, jerk = refined_planner.step(

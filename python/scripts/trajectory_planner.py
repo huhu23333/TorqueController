@@ -91,7 +91,6 @@ class TrajectoryPlanner:
                 utmost_dp1 = v * utmost_dp1_dt + (1/2) * a * utmost_dp1_dt**2 + (1/6) * self._sign(v) * self.J * utmost_dp1_dt**3
                 dp1_left, dp1_right = min(0.0, dp1, utmost_dp1), max(0.0, dp1, utmost_dp1)
 
-
                 v2 = v + (1/2) * a * dt1
                 a2 = 0.0
                 dp2, (dp2_left, dp2_right), _ = self._brake_distance(v2, a2)
@@ -147,8 +146,10 @@ class StepRefinementWrapper:
         self.n = n
 
     def step(self, target, p: float, v: float, a: float, dt: float):
-        """以 dt/n 为步长，连续调用原step函数n次，返回最终状态"""
+        """以 dt/n 为步长，连续调用原step函数n次，返回最终状态，jerk为所有子步jerk的平均值"""
         sub_dt = dt / self.n
+        jerk_sum = 0.0
         for _ in range(self.n):
             p, v, a, jerk = self._step_func(target, p, v, a, sub_dt)
-        return p, v, a, jerk
+            jerk_sum += jerk
+        return p, v, a, jerk_sum / self.n
