@@ -24,18 +24,28 @@ class McuSendPacket(Structure):
         ("protocol_version",    c_uint8),
         ("data_size",           c_uint8),
         ("auto_aim_enable",     c_uint8),
-        ("pitch_target_angle",  c_float),
-        ("yaw_torque",          c_float),
         ("fire",                c_uint8),
+        ("pitch_target_angle",  c_float),
+        ("yaw_torque_only_mode", c_uint8),
+        ("yaw_target_angle",    c_double),
+        ("yaw_target_velocity", c_float),
+        ("yaw_torque",          c_float),
         ("crc8",                c_uint8),
     ]
-    def __init__(self, auto_aim_enable=1, pitch_target_angle=0.0, yaw_torque=0.0, fire=0):
+    def __init__(self, auto_aim_enable=1, pitch_target_angle=0.0,
+                 yaw_torque=0.0, fire=0,
+                 yaw_torque_only_mode=0, yaw_target_angle=0.0, yaw_target_velocity=0.0):
         super().__init__()
         self.frame_header1 = 0x42; self.frame_header2 = 0x52
-        self.protocol_version = 0x01; self.data_size = 10
+        self.protocol_version = 0x02; self.data_size = 23
         self.auto_aim_enable = auto_aim_enable
+        self.fire = fire
         self.pitch_target_angle = pitch_target_angle
-        self.yaw_torque = yaw_torque; self.fire = fire; self.crc8 = 0
+        self.yaw_torque_only_mode = yaw_torque_only_mode
+        self.yaw_target_angle = yaw_target_angle
+        self.yaw_target_velocity = yaw_target_velocity
+        self.yaw_torque = yaw_torque
+        self.crc8 = 0
 
 
 class McuReceivePacket(Structure):
@@ -44,7 +54,7 @@ class McuReceivePacket(Structure):
         ("frame_header1",     c_uint8), ("frame_header2",     c_uint8),
         ("protocol_version",  c_uint8), ("data_size",         c_uint8),
         ("bullet_velocity",   c_float), ("pitch_angle",       c_float),
-        ("yaw_angle",         c_float), ("yaw_omega",         c_float),
+        ("yaw_angle",         c_double),("yaw_omega",         c_float),
         ("chassis_imu_yaw",   c_float), ("chassis_imu_omega", c_float),
         ("mark",              c_uint8), ("color",             c_uint8),
         ("auto_aim_switch",   c_uint8), ("yaw_temperature",   c_uint8), ("crc8",              c_uint8),
@@ -125,6 +135,6 @@ class RobotCommunication:
     def __del__(self): self.close()
 
 # ── 启动时验证 ctypes 布局 ──
-assert ctypes.sizeof(McuSendPacket) == 15, f"McuSendPacket size mismatch: {ctypes.sizeof(McuSendPacket)}"
-assert ctypes.sizeof(McuReceivePacket) == 33, f"McuReceivePacket size mismatch: {ctypes.sizeof(McuReceivePacket)}"
+assert ctypes.sizeof(McuSendPacket) == 28, f"McuSendPacket size mismatch: {ctypes.sizeof(McuSendPacket)}"
+assert ctypes.sizeof(McuReceivePacket) == 37, f"McuReceivePacket size mismatch: {ctypes.sizeof(McuReceivePacket)}"
 assert ctypes.sizeof(ImuReceivePacket) == 60, f"ImuReceivePacket size mismatch: {ctypes.sizeof(ImuReceivePacket)}"

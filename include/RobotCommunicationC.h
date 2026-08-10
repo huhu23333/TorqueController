@@ -28,12 +28,15 @@ extern "C" {
 typedef struct {
     uint8_t frame_header1;       // = 0x42
     uint8_t frame_header2;       // = 0x52
-    uint8_t protocol_version;    // = 0x01
-    uint8_t data_size;           // = 10
+    uint8_t protocol_version;    // = 0x02
+    uint8_t data_size;           // = 23
     uint8_t auto_aim_enable;
-    float   pitch_target_angle;
-    float   yaw_torque;
     uint8_t fire;
+    float   pitch_target_angle;
+    uint8_t yaw_torque_only_mode;
+    double  yaw_target_angle;
+    float   yaw_target_velocity;
+    float   yaw_torque;
     uint8_t crc8;
 } McuSendPacket_C;
 
@@ -41,18 +44,18 @@ typedef struct {
 typedef struct {
     uint8_t frame_header1;       // = 0x42
     uint8_t frame_header2;       // = 0x52
-    uint8_t protocol_version;    // = 0x01
+    uint8_t protocol_version;    // = 0x02
     uint8_t data_size;
     float   bullet_velocity;
     float   pitch_angle;
-    float   yaw_angle;
+    double  yaw_angle;           // 编码器角度 (rad)，不限位
     float   yaw_omega;
     float   chassis_imu_yaw;
     float   chassis_imu_omega;
     uint8_t mark;
     uint8_t color;
     uint8_t auto_aim_switch;
-    uint8_t yaw_temperature;      // yaw轴电机温度
+    uint8_t yaw_temperature;     // yaw轴电机温度
     uint8_t crc8;
 } McuReceivePacket_C;
 

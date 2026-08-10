@@ -53,9 +53,12 @@ int main() {
         mcu::SendPacket packet;
         // 默认初始化的frame_header1, frame_header2, protocol_version, data_size 已自动设置
         packet.auto_aim_enable = 1;       // false
-        packet.pitch_target_angle = 10.0f; // 0
-        packet.yaw_torque = 0.0f;         // 0
         packet.fire = 0;                  // false
+        packet.pitch_target_angle = 10.0f; // 0
+        packet.yaw_torque_only_mode = 1;
+        packet.yaw_target_angle = 0.0;
+        packet.yaw_target_velocity = 0.0f;
+        packet.yaw_torque = 0.0f;         // 0
 
         if (serial.sendData(packet)) {
             send_count++;

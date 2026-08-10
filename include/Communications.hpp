@@ -1,6 +1,6 @@
 // Communications.hpp — 基于 SerialProtocol 模板的具体通信类型定义
 //
-// McuCommunication : 与电控（MCU）通信，CRC8，前导 0x42 0x52 0x01
+// McuCommunication : 与电控（MCU）通信，CRC8，前导 0x42 0x52 0x02
 // ImuCommunication  : 与 IMU 模块通信，CRC32，前导 0xA7 0xB6 0xC5
 //
 #ifndef COMMUNICATIONS_HPP

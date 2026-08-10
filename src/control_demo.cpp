@@ -125,9 +125,12 @@ int main() {
         // 构造发送包并发送（预处理在 sendToMcu 内部完成）
         mcu::SendPacket pkt;
         pkt.auto_aim_enable    = 1;
-        pkt.pitch_target_angle = data.imu_valid ? static_cast<float>(data.imu_packet.euler_pitch) : 0.0f;
-        pkt.yaw_torque         = yaw_torque;
         pkt.fire               = 0;
+        pkt.pitch_target_angle = data.imu_valid ? static_cast<float>(data.imu_packet.euler_pitch) : 0.0f;
+        pkt.yaw_torque_only_mode = 1;
+        pkt.yaw_target_angle   = 0.0;
+        pkt.yaw_target_velocity = 0.0f;
+        pkt.yaw_torque         = yaw_torque;
         robot_comm.sendToMcu(pkt);
 
         // 每 100 次循环打印一次状态

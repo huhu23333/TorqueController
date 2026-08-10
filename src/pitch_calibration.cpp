@@ -93,9 +93,12 @@ void PitchCalibrator::onImuPacket(const imu::ReceivePacket& pkt) {
 DataPoint PitchCalibrator::sample(float target_angle) {
     mcu::SendPacket pkt;
     pkt.auto_aim_enable    = 1;
-    pkt.pitch_target_angle = target_angle;
-    pkt.yaw_torque         = 0.0f;
     pkt.fire               = 0;
+    pkt.pitch_target_angle = target_angle;
+    pkt.yaw_torque_only_mode = 0;
+    pkt.yaw_target_angle   = 0.0;
+    pkt.yaw_target_velocity = 0.0f;
+    pkt.yaw_torque         = 0.0f;
     serial_.sendData(pkt);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
