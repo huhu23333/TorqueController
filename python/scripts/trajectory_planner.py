@@ -130,3 +130,25 @@ class TrajectoryPlanner:
         new_p = p + new_v * dt
 
         return new_p, new_v, new_a, jerk
+
+
+class StepRefinementWrapper:
+    """封装器：以细化系数n将传入的原step函数的每次调用拆分为n次子步调用，
+    每次子步以 dt/n 的步长进行，最终返回n次迭代后的结果。"""
+
+    def __init__(self, step_func, n: int):
+        """
+        :param step_func: 原step函数，签名为 step(target, p, v, a, dt) -> (new_p, new_v, new_a, jerk)
+        :param n: 细化系数(int)，内部将原dt除以n后重复调用step n次
+        """
+        self._step_func = step_func
+        if n < 1:
+            raise ValueError("n must be >= 1")
+        self.n = n
+
+    def step(self, target, p: float, v: float, a: float, dt: float):
+        """以 dt/n 为步长，连续调用原step函数n次，返回最终状态"""
+        sub_dt = dt / self.n
+        for _ in range(self.n):
+            p, v, a, jerk = self._step_func(target, p, v, a, sub_dt)
+        return p, v, a, jerk

@@ -13,7 +13,7 @@ trajectory_viz.py — 轨迹规划器 pygame 可视化
 import sys, os, math
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from scripts.trajectory_planner import TrajectoryPlanner
+from scripts.trajectory_planner import TrajectoryPlanner, StepRefinementWrapper
 import pygame
 from pygame.locals import *
 from collections import deque
@@ -208,6 +208,7 @@ def main():
     clock = pygame.time.Clock()
 
     planner = TrajectoryPlanner(max_velocity=MAX_VEL, max_acceleration=MAX_ACCEL, max_jerk=MAX_JERK)
+    refined_planner = StepRefinementWrapper(planner.step, 10)
 
     # 状态
     target_pos = 2.0 * math.pi       # 默认 1 圈
@@ -252,7 +253,7 @@ def main():
         target_pos = TARGET_MIN + (mx_clamped / WINDOW_W) * (TARGET_MAX - TARGET_MIN)
 
         # ── 轨迹规划器迭代 ──
-        current_pos, current_vel, current_acc, jerk = planner.step(
+        current_pos, current_vel, current_acc, jerk = refined_planner.step(
             target_pos, current_pos, current_vel, current_acc, DT
         )
 
