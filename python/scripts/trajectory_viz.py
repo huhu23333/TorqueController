@@ -28,7 +28,7 @@ DT = 1.0 / FPS
 # 轨迹规划器参数
 MAX_VEL   = 30.0       # rad/s
 MAX_ACCEL = 50.0       # rad/s²
-MAX_JERK  = 2000.0       # rad/s³
+MAX_JERK  = 500.0       # rad/s³
 
 # 目标范围：鼠标横向 → 0 ~ 4π (两整圈)
 TARGET_MIN = -1.5 * math.pi 

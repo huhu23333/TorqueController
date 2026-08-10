@@ -93,7 +93,7 @@ class TrajectoryPlanner:
 
                 v2 = v + (1/2) * a * dt1
                 a2 = 0.0
-                dp2, (dp2_left, dp2_right), _ = self._brake_distance(v2, a2)
+                dp2, (dp2_left, dp2_right), _ = self._brake_distance(v2, a2) # 这里 a=0，只会走 v*a≥0 分支，递归深度最多为 1
 
                 dp = dp1+dp2
                 dp_left = min(0.0, dp2_left+dp1, dp1_left)

@@ -43,7 +43,7 @@ PITCH_SENS =  0.003     # 鼠标竖向每像素 → pitch rad
 # 轨迹规划器参数 (与 trajectory_viz 一致)
 MAX_VEL   = 30.0       # rad/s
 MAX_ACCEL = 50.0       # rad/s²
-MAX_JERK  = 2000.0     # rad/s³
+MAX_JERK  = 500.0     # rad/s³
 REFINE_N  = 1000        # StepRefinementWrapper 细化系数
 
 # 波形图参数
