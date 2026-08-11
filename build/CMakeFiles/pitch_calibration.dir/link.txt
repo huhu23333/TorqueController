@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/pitch_calibration.dir/src/pitch_calibration.cpp.o -o pitch_calibration  libcommunication.a /usr/lib/x86_64-linux-gnu/libudev.so 

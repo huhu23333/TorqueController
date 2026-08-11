@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/control_demo.dir/src/control_demo.cpp.o -o control_demo  libcommunication.a /usr/lib/x86_64-linux-gnu/libudev.so 
