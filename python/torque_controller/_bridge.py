@@ -32,7 +32,7 @@ class McuSendPacket(Structure):
         ("yaw_torque",          c_float),
         ("crc8",                c_uint8),
     ]
-    def __init__(self, auto_aim_enable=1, pitch_target_angle=0.0,
+    def __init__(self, auto_aim_enable=0, pitch_target_angle=0.0,
                  yaw_torque=0.0, fire=0,
                  yaw_torque_only_mode=0, yaw_target_angle=0.0, yaw_target_velocity=0.0):
         super().__init__()

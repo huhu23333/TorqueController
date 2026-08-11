@@ -13,6 +13,7 @@ import sys, os, math, time
 import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from torque_controller import RobotCommunication, McuSendPacket
+from scripts.trajectory_planner import TrajectoryPlanner, StepRefinementWrapper
 
 # ============================================================================
 # 参数
@@ -23,9 +24,18 @@ SAMPLE_LEN     = 300
 SEED = 42
 np.random.seed(SEED)
 
+# 轨迹规划器参数 (与 trajectory_viz 一致)
+MAX_VEL   = 30.0       # rad/s
+MAX_ACCEL = 50.0       # rad/s²
+MAX_JERK  = 2000.0     # rad/s³
+REFINE_N  = 1000       # StepRefinementWrapper 细化系数
+
 PID_KP, PID_KI, PID_KD = 2.0, 0.1, 0.2
 PID_OUT_MIN, PID_OUT_MAX = -1.0, 1.0
 TWO_PI = 2.0 * math.pi
+
+# 力矩变化率限制
+MAX_TORQUE_DELTA = 0.02  # 相邻两步力矩差异不超过此值
 
 # 过热检测
 OVERHEAT_ACTION = "wait"   # "exit" 或 "wait"
@@ -99,14 +109,37 @@ def random_target_sequence(all_targets):
     bias = np.random.uniform(-math.pi, math.pi)
     seq += bias
 
-    # 5. remainder 到 [-pi, pi]
-    seq = np.remainder(seq + math.pi, TWO_PI) - math.pi
+    # 不在此处 remainder，留给平滑后再做
 
     return seq.astype(np.float64)
 
 def busy_wait_until(target_ns):
     while time.perf_counter_ns() < target_ns:
         pass
+
+def compute_smooth_targets(raw_targets, dt, planner, refined_planner):
+    """将 raw_targets 通过 TrajectoryPlanner+StepRefinementWrapper 平滑化
+    返回平滑后的位置轨迹 (np.ndarray, shape=(len(raw_targets),))"""
+    n = len(raw_targets)
+    smooth = np.zeros(n, dtype=np.float64)
+    pos = float(raw_targets[0])
+    vel = 0.0
+    acc = 0.0
+    for i in range(n):
+        pos, vel, acc, _ = refined_planner.step(
+            float(raw_targets[i]), pos, vel, acc, dt
+        )
+        smooth[i] = pos
+    return smooth
+
+def limit_torque(torque, last_torque):
+    """限制力矩变化率不超过 MAX_TORQUE_DELTA"""
+    delta = torque - last_torque
+    if delta > MAX_TORQUE_DELTA:
+        return last_torque + MAX_TORQUE_DELTA
+    elif delta < -MAX_TORQUE_DELTA:
+        return last_torque - MAX_TORQUE_DELTA
+    return torque
 
 
 
@@ -131,19 +164,34 @@ def main():
     last_saved = None
     overheat_deg = math.radians(OVERHEAT_DEG)
 
+    # 轨迹规划器 (参数与 trajectory_viz 一致)
+    planner = TrajectoryPlanner(max_velocity=MAX_VEL, max_acceleration=MAX_ACCEL, max_jerk=MAX_JERK)
+    refined_planner = StepRefinementWrapper(planner.step, REFINE_N)
+
+    # 力矩变化率限制用，跨 send_to_mcu 调用共享
+    last_torque = [0.0]  # 用列表实现 mutable closure
+
     def check_temp(data):
         mcu = data.mcu_packet
         return mcu.yaw_temperature if data.mcu_valid else 0
 
     def send_zero():
-        pkt = McuSendPacket(auto_aim_enable=1, pitch_target_angle=0.0, yaw_torque=0.0, fire=0)
+        torque = limit_torque(0.0, last_torque[0])
+        pkt = McuSendPacket(auto_aim_enable=1, pitch_target_angle=0.0,
+                            yaw_torque_only_mode=1, yaw_target_angle=0.0,
+                            yaw_target_velocity=0.0, yaw_torque=torque, fire=0)
         robot.send_to_mcu(pkt)
+        last_torque[0] = torque
 
     def pid_to_target(target, duration):
         pid.reset()
         t0 = time.perf_counter_ns()
         end_yaw = 0.0
+        step = 0
         while time.perf_counter_ns() - t0 < duration * 1e9:
+            target_ns = t0 + step * DT_NS
+            busy_wait_until(target_ns)
+            step += 1
             data = robot.get_latest_data()
             if check_temp(data) >= OVERHEAT_TEMP:
                 return end_yaw, True
@@ -154,10 +202,12 @@ def main():
                 torque = pid.update(err, DT)
             else:
                 torque = 0.0
+            torque = limit_torque(torque, last_torque[0])
             pkt = McuSendPacket(auto_aim_enable=1, pitch_target_angle=0.0,
-                                yaw_torque=torque, fire=0)
+                                yaw_torque_only_mode=1, yaw_target_angle=0.0,
+                                yaw_target_velocity=0.0, yaw_torque=torque, fire=0)
             robot.send_to_mcu(pkt)
-            time.sleep(DT)
+            last_torque[0] = torque
             end_yaw = obs_yaw
         return end_yaw, False
 
@@ -166,12 +216,18 @@ def main():
             os.remove(last_saved)
             print(f"  Removed previous sample: {last_saved}")
         print(f"  OVERHEAT ({reason}), cooling down {OVERHEAT_WAIT_S}s...")
-        send_zero()
-        for remaining in range(int(OVERHEAT_WAIT_S) - 1, -1, -1):
+        total_ns = int(OVERHEAT_WAIT_S * 1e9)
+        t0 = time.perf_counter_ns()
+        step = 0
+        while time.perf_counter_ns() - t0 < total_ns:
+            target_ns = t0 + step * DT_NS
+            busy_wait_until(target_ns)
+            step += 1
             send_zero()
-            temp = check_temp(robot.get_latest_data())
-            print(f"  Cooling... temp={temp}°C  remaining={remaining}s  reason={reason}")
-            time.sleep(1.0)
+            if step % 100 == 0:
+                remaining = int(OVERHEAT_WAIT_S) - (step // 100)
+                temp = check_temp(robot.get_latest_data())
+                print(f"  Cooling... temp={temp}°C  remaining={remaining}s  reason={reason}")
         if OVERHEAT_ACTION == "exit":
             print("  Exiting.")
             sys.exit(1)
@@ -179,22 +235,27 @@ def main():
 
     try:
         while True:
-            targets = random_target_sequence(all_targets)
-            first_target = float(targets[0])
+            targets_raw = random_target_sequence(all_targets)
+
+            # ── 使用 TrajectoryPlanner + StepRefinementWrapper 平滑原始目标轨迹 ──
+            targets_smooth = compute_smooth_targets(targets_raw, DT, planner, refined_planner)
+            # 平滑后再 remainder 到 [-pi, pi]
+            targets_smooth = np.remainder(targets_smooth + math.pi, TWO_PI) - math.pi
+            first_target = float(targets_smooth[0])
             ts = int(time.time())
             print(f"\n=== Sample {ts} === first_target={first_target:.3f} rad")
             temp = check_temp(robot.get_latest_data())
             print(f"  Current temp: {temp}°C")
 
-            # ── 1s: PID 到 first_target + 30° ──
+            # ── 2s: PID 到 first_target + 30° ──
             target_plus = first_target + math.radians(30)
-            print(f"  PID to {math.degrees(target_plus):.1f}° for 1s...")
-            yaw1, oh = pid_to_target(target_plus, 1.0)
+            print(f"  PID to {math.degrees(target_plus):.1f}° for 2s...")
+            yaw1, oh = pid_to_target(target_plus, 2.0)
             if oh: handle_overheat(f"temp>={OVERHEAT_TEMP}"); continue
 
-            # ── 1s: PID 到 first_target ──
-            print(f"  PID to {math.degrees(first_target):.1f}° for 1s...")
-            yaw2, oh = pid_to_target(first_target, 1.0)
+            # ── 2s: PID 到 first_target ──
+            print(f"  PID to {math.degrees(first_target):.1f}° for 2s...")
+            yaw2, oh = pid_to_target(first_target, 2.0)
             if oh: handle_overheat(f"temp>={OVERHEAT_TEMP}"); continue
 
             # ── 过热检测（动作幅度） ──
@@ -207,9 +268,12 @@ def main():
             # ── 1s: 零力矩 ──
             print(f"  Zero torque for 1s...")
             t0 = time.perf_counter_ns()
+            step = 0
             while time.perf_counter_ns() - t0 < 1e9:
+                target_ns = t0 + step * DT_NS
+                busy_wait_until(target_ns)
+                step += 1
                 send_zero()
-                time.sleep(DT)
 
             # ── 采样 3s ──
             print(f"  Sampling {SAMPLE_LEN} steps...")
@@ -227,20 +291,24 @@ def main():
                 if data.imu_valid:
                     obs_yaw = float(data.imu_packet.euler_yaw)
                     obs_gz  = float(data.imu_packet.gz)
-                    err = math.remainder(float(targets[step]) - obs_yaw, TWO_PI)
+                    err = math.remainder(float(targets_smooth[step]) - obs_yaw, TWO_PI)
                     torque = pid.update(err, DT)
                 else:
                     obs_yaw = 0.0; obs_gz = 0.0; torque = 0.0
+                torque = limit_torque(torque, last_torque[0])
                 pkt = McuSendPacket(auto_aim_enable=1, pitch_target_angle=0.0,
-                                    yaw_torque=torque, fire=0)
+                                    yaw_torque_only_mode=1, yaw_target_angle=0.0,
+                                    yaw_target_velocity=0.0, yaw_torque=torque, fire=0)
                 robot.send_to_mcu(pkt)
+                last_torque[0] = torque
                 torque_log.append(torque)
                 yaw_log.append(obs_yaw)
                 gz_log.append(obs_gz)
 
             save_path = os.path.join(SAVE_DIR, f"sample_{ts}.npz")
             np.savez(save_path,
-                     target=targets,
+                     target_raw=targets_raw,
+                     target=targets_smooth,
                      torque=np.array(torque_log, dtype=np.float32),
                      yaw=np.array(yaw_log, dtype=np.float64),
                      gz=np.array(gz_log, dtype=np.float64))
