@@ -240,7 +240,7 @@ def main():
             # ── 使用 TrajectoryPlanner + StepRefinementWrapper 平滑原始目标轨迹 ──
             targets_smooth = compute_smooth_targets(targets_raw, DT, planner, refined_planner)
             # 平滑后再 remainder 到 [-pi, pi]
-            targets_smooth = np.remainder(targets_smooth + math.pi, TWO_PI) - math.pi
+            targets_smooth = np.remainder(targets_smooth, TWO_PI)
             first_target = float(targets_smooth[0])
             ts = int(time.time())
             print(f"\n=== Sample {ts} === first_target={first_target:.3f} rad")
@@ -259,7 +259,7 @@ def main():
             if oh: handle_overheat(f"temp>={OVERHEAT_TEMP}"); continue
 
             # ── 过热检测（动作幅度） ──
-            diff = abs(math.remainder(yaw1 - yaw2 + math.pi, TWO_PI) - math.pi)
+            diff = abs(math.remainder(yaw1 - yaw2, TWO_PI))
             print(f"  yaw1={math.degrees(yaw1):.1f}° yaw2={math.degrees(yaw2):.1f}° diff={math.degrees(diff):.1f}°")
             if diff < overheat_deg:
                 handle_overheat(f"motion<{OVERHEAT_DEG}°")
