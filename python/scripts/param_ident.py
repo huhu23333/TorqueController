@@ -5,11 +5,17 @@ param_ident.py — 系统辨识（基于 data/sysid_samples/*.npz）
 使用 PyTorch 可微分仿真 + tanh 软符号函数进行梯度优化
 """
 
+import random
 import torch, torch.nn as nn
 import numpy as np, os, sys, math, matplotlib.pyplot as plt
 
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+
 SAVE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "sysid_samples")
 DT = 0.01
+SEG_STEPS = 10  # 每次拟合只截取 0.1s（10 步）的片段
 
 # ============================================================================
 # 可微分仿真环境
@@ -21,9 +27,11 @@ class DifferentiableYawSimEnv:
     def set_params(self, J, tau_c, b, tau_d):
         self.J, self.tau_c, self.b, self.tau_d = J, tau_c, b, tau_d
 
-    def simulate(self, tau_seq, omega_init):
+    def simulate(self, tau_seq, theta_init, omega_init):
         N = tau_seq.shape[0]
+        theta = theta_init.clone().detach()
         omega = omega_init.clone().detach()
+        theta_list = []
         omega_list = []
         lam = 1e4
         for i in range(N):
@@ -32,8 +40,10 @@ class DifferentiableYawSimEnv:
             tau_net = tau_seq[i] + tau_f + self.tau_d
             alpha = tau_net / self.J
             omega = omega + alpha * self.dt
+            theta = theta + omega * self.dt
+            theta_list.append(theta)
             omega_list.append(omega)
-        return torch.stack(omega_list)
+        return torch.stack(theta_list), torch.stack(omega_list)
 
 # ============================================================================
 # 数据加载
@@ -45,7 +55,7 @@ def load_samples():
         d = np.load(os.path.join(SAVE_DIR, f))
         samples.append({
             'target': d['target'], 'torque': d['torque'],
-            'yaw': d['yaw'], 'gz': d['gz'],
+            'yaw': np.unwrap(d['yaw']), 'gz': d['gz'],
         })
     print(f"Loaded {len(samples)} samples")
     return samples
@@ -68,42 +78,62 @@ def optimize(samples, num_epochs=5000, lr=1e-3, device='cpu'):
 
     loss_history, param_history = [], []
     for epoch in range(num_epochs):
-        opt.zero_grad()
-        total_loss = torch.tensor(0.0, device=device)
+        epoch_loss = 0.0
         n_seq = 0
 
-        for sample in samples:
+        for sample_idx, (sample) in enumerate(samples):
             torque = sample['torque']
             L = len(torque)
-            if L < 2:
+            if L < SEG_STEPS:
                 continue
             gz = sample['gz']
+            yaw = sample['yaw']
 
-            tau_t = torch.tensor(torque, dtype=torch.float32, device=device)
-            omega_init = torch.tensor(float(gz[0]), dtype=torch.float32, device=device)
-            omega_true = torch.tensor(gz, dtype=torch.float32, device=device)
+            # 每次随机截取 0.1s（10 步）片段，而不是使用整个片段
+            start = random.randint(0, L - SEG_STEPS)
+            torque_seg = torque[start:start + SEG_STEPS]
+            gz_seg = gz[start:start + SEG_STEPS]
+            yaw_seg = yaw[start:start + SEG_STEPS]
+
+            tau_t = torch.tensor(torque_seg, dtype=torch.float32, device=device)
+            theta_init = torch.tensor(float(yaw_seg[0]), dtype=torch.float32, device=device)
+            omega_init = torch.tensor(float(gz_seg[0]), dtype=torch.float32, device=device)
+            theta_true = torch.tensor(yaw_seg, dtype=torch.float32, device=device)
+            omega_true = torch.tensor(gz_seg, dtype=torch.float32, device=device)
 
             J, tc, b, td = get_params()
             diff_env.set_params(J, tc, b, td)
-            omega_sim = diff_env.simulate(tau_t, omega_init)
+            theta_sim, omega_sim = diff_env.simulate(tau_t, theta_init, omega_init)
 
-            loss = torch.mean((omega_sim - omega_true) ** 2)
-            total_loss = total_loss + loss
+            # 每模拟一个片段就计算一个片段的损失（位置 + 速度）
+            # 角度误差先归一化到 (-π, π] 再平方，避免 ±π 处绕卷跳变
+            delta = theta_sim - theta_true
+            delta = torch.atan2(torch.sin(delta), torch.cos(delta))
+            pos_loss = torch.mean(delta ** 2)
+            vel_loss = torch.mean((omega_sim - omega_true) ** 2)
+            loss = pos_loss + vel_loss
+
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+
+            # 每次 step 打印当前参数与该片段的 loss
+            J_now, tc_now, b_now, td_now = get_params()
+
+            epoch_loss += loss.item()
             n_seq += 1
 
         if n_seq == 0:
             continue
-        total_loss = total_loss / n_seq
-        total_loss.backward()
-        opt.step()
+        epoch_loss /= n_seq
 
-        loss_history.append(total_loss.item())
+        print(f"Epoch {epoch:5d} loss={epoch_loss:.6f}  "
+              f"J={J_now.item():.4f} tau_c={tc_now.item():.3f} "
+              f"b={b_now.item():.4f} tau_d={td_now.item():.4f}")
+
+        loss_history.append(epoch_loss)
         J, tc, b, td = get_params()
         param_history.append([J.item(), tc.item(), b.item(), td.item()])
-
-        if epoch % 500 == 0:
-            print(f"Epoch {epoch:5d}  loss={total_loss.item():.6f}  "
-                  f"J={J.item():.4f} tau_c={tc.item():.3f} b={b.item():.4f} tau_d={td.item():.4f}")
 
     return [p.item() for p in get_params()], loss_history, param_history
 
@@ -120,7 +150,7 @@ def main():
         return
 
     print("Optimizing...")
-    final_params, loss_history, param_history = optimize(samples, num_epochs=5000, lr=3e-4, device=device)
+    final_params, loss_history, param_history = optimize(samples, num_epochs=1000, lr=3e-4, device=device)
 
     param_names = ['J', 'tau_c', 'b', 'tau_d']
     print("\n" + "=" * 50)
@@ -131,7 +161,7 @@ def main():
 
     # 画图
     param_history = np.array(param_history)
-    fig, axes = plt.subplots(2, 3, figsize=(14, 8))
+    fig, axes = plt.subplots(3, 3, figsize=(16, 10))
 
     axes[0, 0].plot(loss_history)
     axes[0, 0].set_yscale('log')
@@ -149,14 +179,26 @@ def main():
 
     sample = samples[-1]
     tau_t = torch.tensor(sample['torque'], dtype=torch.float32, device=device)
+    yaw_true = torch.tensor(sample['yaw'], dtype=torch.float32, device=device)
     gz_true = torch.tensor(sample['gz'], dtype=torch.float32, device=device)
+    theta_init = torch.tensor(float(sample['yaw'][0]), dtype=torch.float32, device=device)
     omega_init = torch.tensor(float(sample['gz'][0]), dtype=torch.float32, device=device)
     with torch.no_grad():
-        gz_sim = diff_env.simulate(tau_t, omega_init)
+        yaw_sim, gz_sim = diff_env.simulate(tau_t, theta_init, omega_init)
 
-    axes[1, 2].plot(gz_true.cpu()[:300], label='Real', alpha=0.7)
-    axes[1, 2].plot(gz_sim.cpu()[:300], '--', label='Sim', alpha=0.7)
-    axes[1, 2].set_title('gz compare'); axes[1, 2].legend(); axes[1, 2].grid(True)
+    # 位置（yaw）曲线对比
+    axes[1, 2].plot(yaw_true.cpu()[:300], label='Real', alpha=0.7)
+    axes[1, 2].plot(yaw_sim.cpu()[:300], '--', label='Sim', alpha=0.7)
+    axes[1, 2].set_title('yaw compare'); axes[1, 2].legend(); axes[1, 2].grid(True)
+
+    # 速度（gz）曲线对比
+    axes[2, 0].plot(gz_true.cpu()[:300], label='Real', alpha=0.7)
+    axes[2, 0].plot(gz_sim.cpu()[:300], '--', label='Sim', alpha=0.7)
+    axes[2, 0].set_title('gz compare'); axes[2, 0].legend(); axes[2, 0].grid(True)
+
+    # 删除多余的空白子图
+    fig.delaxes(axes[2, 1])
+    fig.delaxes(axes[2, 2])
 
     plt.tight_layout()
     plt.show()
