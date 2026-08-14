@@ -22,7 +22,7 @@ set(COMMUNICATION_HEADERS
     include/SerialProtocol.hpp
     include/Protocol.hpp
     include/Communications.hpp
-    include/McuDataPreprocessor.hpp
+    include/McuDataPreprocessor.h
 )
 
 # 构建通信库

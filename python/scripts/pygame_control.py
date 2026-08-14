@@ -25,6 +25,8 @@ import pygame
 from pygame.locals import *
 from collections import deque
 
+import math
+
 # ============================================================================
 # 配置
 # ============================================================================
@@ -327,7 +329,7 @@ def main():
             target_yaw, yaw_pos, yaw_vel, yaw_acc, dt
         )
 
-        yaw_torque = 0.0
+        yaw_torque = 0.0 # math.tanh((target_yaw - data.mcu_packet.yaw_angle))
 
         # ── 发送 ──
         pkt = McuSendPacket(

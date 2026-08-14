@@ -9,7 +9,7 @@
 #include "SerialProtocol.hpp"
 #include "Protocol.hpp"
 #include "CRC.h"
-#include "McuDataPreprocessor.hpp"
+#include "McuDataPreprocessor.h"
 #include <string>
 #include <mutex>
 
