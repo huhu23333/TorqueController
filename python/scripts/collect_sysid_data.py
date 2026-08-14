@@ -35,7 +35,7 @@ PID_OUT_MIN, PID_OUT_MAX = -1.0, 1.0
 TWO_PI = 2.0 * math.pi
 
 # 力矩变化率限制
-MAX_TORQUE_DELTA = 0.02  # 相邻两步力矩差异不超过此值
+MAX_TORQUE_DELTA = 0.1  # 相邻两步力矩差异不超过此值
 
 # 过热检测
 OVERHEAT_ACTION = "wait"   # "exit" 或 "wait"
