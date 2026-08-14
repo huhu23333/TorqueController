@@ -3,6 +3,7 @@ project(TorqueController LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_BUILD_TYPE Release)
 
 # 查找udev库
 find_library(UDEV_LIBRARY udev)
@@ -55,3 +56,18 @@ target_link_libraries(robot_comm_c PUBLIC ${UDEV_LIBRARY})
 # 构建控制演示程序
 add_executable(control_demo src/control_demo.cpp)
 target_link_libraries(control_demo PRIVATE communication)
+
+# ============================================================================
+# MPC 求解器共享库（供 Python ctypes 加载）
+# ============================================================================
+find_package(Ceres REQUIRED)
+
+add_library(mpc_controller SHARED
+    mpc/mpc_controller.cpp
+    mpc/mpc_c_api.cpp
+)
+target_include_directories(mpc_controller PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/mpc
+    ${CERES_INCLUDE_DIRS}
+)
+target_link_libraries(mpc_controller PRIVATE ${CERES_LIBRARIES})
