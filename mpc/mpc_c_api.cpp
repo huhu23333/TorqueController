@@ -15,12 +15,12 @@ typedef struct {
 
 MpcHandle mpc_create(double dt_control, double dt_sim,
                      double J, double tau_c, double b, double tau_d,
-                     double max_omega, double max_torque, double max_torque_rate,
+                     double max_torque, double max_torque_rate,
                      int N, double Q, double R, double Rd, int max_iter) {
     try {
         MPCController* mpc = new MPCController(dt_control, dt_sim,
                                               J, tau_c, b, tau_d,
-                                              max_omega, max_torque, max_torque_rate,
+                                              max_torque, max_torque_rate,
                                               N, Q, R, Rd, max_iter);
         return static_cast<MpcHandle>(mpc);
     } catch (...) {

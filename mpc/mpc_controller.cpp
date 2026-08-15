@@ -103,11 +103,11 @@ private:
 // ------------------------------------------------------------
 MPCController::MPCController(double dt_control, double dt_sim,
                              double J, double tau_c, double b, double tau_d,
-                             double max_omega, double max_torque, double max_torque_rate,
+                             double max_torque, double max_torque_rate,
                              int N, double Q, double R, double Rd, int max_iter)
     : dt_control_(dt_control), dt_sim_(dt_sim),
       J_(J), tau_c_(tau_c), b_(b), tau_d_(tau_d),
-      max_omega_(max_omega), max_torque_(max_torque), max_torque_rate_(max_torque_rate),
+      max_torque_(max_torque), max_torque_rate_(max_torque_rate),
       N_(N), Q_(Q), R_(R), Rd_(Rd), max_iter_(max_iter)
 {
     double ratio = dt_control_ / dt_sim_;

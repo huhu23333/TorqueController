@@ -32,12 +32,11 @@ class MPCController:
 
     def __init__(self, dt_control, dt_sim,
                  J, tau_c, b, tau_d=0.0,
-                 max_omega=30.0, max_torque=1.0, max_torque_rate=10.0,
+                 max_torque=1.0, max_torque_rate=10.0,
                  N=20, Q=5.0, R=0.01, Rd=0.1, max_iter=30, lib_path=None):
         self.dt_control = dt_control
         self.dt_sim = dt_sim
         self.N = N
-        self.max_omega = max_omega
         self.max_torque = max_torque
         self.max_torque_rate = max_torque_rate
 
@@ -48,7 +47,7 @@ class MPCController:
         self._lib.mpc_create.argtypes = [
             c_double, c_double,                       # dt_control, dt_sim
             c_double, c_double, c_double, c_double,   # J, tau_c, b, tau_d
-            c_double, c_double, c_double,             # max_omega, max_torque, max_torque_rate
+            c_double, c_double,                       # max_torque, max_torque_rate
             c_int,                                    # N
             c_double, c_double, c_double,             # Q, R, Rd
             c_int,                                    # max_iter
@@ -68,7 +67,7 @@ class MPCController:
         self._handle = self._lib.mpc_create(
             dt_control, dt_sim,
             J, tau_c, b, tau_d,
-            max_omega, max_torque, max_torque_rate,
+            max_torque, max_torque_rate,
             N, Q, R, Rd, max_iter,
         )
         if not self._handle:

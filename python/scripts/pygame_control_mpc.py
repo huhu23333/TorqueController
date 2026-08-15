@@ -56,7 +56,6 @@ B_FRIC  = 0.032100
 TAU_D   = 0.0            # tau_d 设为 0
 
 # ================== 约束 ==================
-MAX_OMEGA       = 30.0   # 最高速度 (rad/s)
 MAX_TORQUE      = 1.0    # 最大力矩 (N·m)
 MAX_TORQUE_RATE = 10.0   # 最大力矩变化率 (N·m/s)
 
@@ -73,8 +72,17 @@ def busy_wait_until(target_s):
         pass
 
 
-# ================== 曲线绘图器类 (仿照 test3.py) ==================
+# ================== 曲线绘图器类（三面板波形：Angle / Velocity / Torque，仿 trajectory_viz.py）==================
 class CurvePlotter:
+    COLORS = {
+        "actual": (0, 200, 0),        # 绿色
+        "target": (200, 50, 50),      # 红色
+        "error":  (240, 220, 60),     # 黄色
+        "ctrl":   (60, 160, 255),     # 蓝色（控制量）
+        "omega":  (255, 160, 40),     # 橙色（实际速度）
+        "torque": (255, 120, 200),    # 品红（力矩）
+    }
+
     def __init__(self, screen, rect, dt, init_time_range=5.0, init_angle_range=3.14):
         self.screen = screen
         self.rect = rect
@@ -83,32 +91,37 @@ class CurvePlotter:
         self.angle_range = init_angle_range
 
         max_len = int(init_time_range / dt) + 100
-        self.angles = deque(maxlen=max_len)
-        self.targets = deque(maxlen=max_len)
-        self.errors = deque(maxlen=max_len)
+        self.angles     = deque(maxlen=max_len)
+        self.targets    = deque(maxlen=max_len)
+        self.errors     = deque(maxlen=max_len)
+        self.omega_ctrl = deque(maxlen=max_len)   # 控制速度（MPC 预测第一步，发送值）
+        self.omega_act  = deque(maxlen=max_len)   # 实际速度（MCU 编码器 / 仿真）
+        self.torque     = deque(maxlen=max_len)   # 控制力矩（MPC 输出）
         self.font = pygame.font.SysFont("Consolas", 16)
 
-    def add_point(self, angle_wrapped, target_angle):
+    def add_point(self, angle_wrapped, target_angle, omega_ctrl, omega_act, torque):
         error = target_angle - angle_wrapped
         error = (error + math.pi) % (2 * math.pi) - math.pi
         self.angles.append(angle_wrapped)
         self.targets.append(target_angle)
         self.errors.append(error)
+        self.omega_ctrl.append(omega_ctrl)
+        self.omega_act.append(omega_act)
+        self.torque.append(torque)
 
         needed_len = int(self.time_range / self.dt) + 10
         if self.angles.maxlen < needed_len:
-            self.angles = deque(self.angles, maxlen=needed_len)
-            self.targets = deque(self.targets, maxlen=needed_len)
-            self.errors = deque(self.errors, maxlen=needed_len)
+            self._resize_buffers(needed_len)
+
+    def _resize_buffers(self, new_len):
+        for name in ("angles", "targets", "errors", "omega_ctrl", "omega_act", "torque"):
+            setattr(self, name, deque(getattr(self, name), maxlen=new_len))
 
     def modify_time_range(self, delta):
         new_range = self.time_range + delta
         if 0.5 <= new_range <= 20.0:
             self.time_range = new_range
-            new_len = int(self.time_range / self.dt) + 10
-            self.angles = deque(self.angles, maxlen=new_len)
-            self.targets = deque(self.targets, maxlen=new_len)
-            self.errors = deque(self.errors, maxlen=new_len)
+            self._resize_buffers(int(self.time_range / self.dt) + 10)
 
     def modify_angle_range(self, delta):
         new_range = self.angle_range + delta
@@ -116,75 +129,115 @@ class CurvePlotter:
             self.angle_range = new_range
 
     def draw(self):
-        pygame.draw.rect(self.screen, (30, 30, 40), self.rect)
-        pygame.draw.rect(self.screen, (100, 100, 120), self.rect, 2)
+        # 垂直三面板布局
+        margin, gap, help_h = 4, 3, 24
+        avail = self.rect.height - help_h
+        panel_h = (avail - margin * 2 - gap * 2) // 3
+        panels = []
+        y = self.rect.top + margin
+        for _ in range(3):
+            panels.append(pygame.Rect(self.rect.left + margin, y,
+                                      self.rect.width - margin * 2, panel_h))
+            y += panel_h + gap
 
-        plot_rect = self.rect.inflate(-40, -40)
-        plot_rect.x += 20
-        plot_rect.y += 20
-        if plot_rect.width <= 0 or plot_rect.height <= 0:
+        # 角度面板（Y 范围可调，[ / ] 键）
+        self._draw_panel(panels[0], "Angle", [
+            (self.COLORS["actual"], "Actual", self.angles),
+            (self.COLORS["target"], "Target", self.targets),
+            (self.COLORS["error"],  "Error",  self.errors),
+        ], "rad", fixed_range=(-self.angle_range, self.angle_range))
+
+        # 速度面板（Y 范围自动缩放）：Ctrl = MPC 预测第一步速度，Actual = 实测速度
+        self._draw_panel(panels[1], "Velocity", [
+            (self.COLORS["ctrl"],  "Ctrl",   self.omega_ctrl),
+            (self.COLORS["omega"], "Actual", self.omega_act),
+        ], "rad/s", fixed_range=None)
+
+        # 力矩面板（Y 范围固定 ±1.2，MAX_TORQUE=1.0）
+        self._draw_panel(panels[2], "Torque", [
+            (self.COLORS["torque"], "Ctrl", self.torque),
+        ], "N\u00b7m", fixed_range=(-1.2, 1.2))
+
+        # 底部帮助
+        help_text = self.font.render(
+            f"TimeRange:{self.time_range:.1f}s  AngleRange:{self.angle_range:.1f}rad   "
+            f"Keys: +/- :Time  [ / ] :Angle  ESC : quit", True, (150, 150, 150))
+        self.screen.blit(help_text, (self.rect.left + 8, self.rect.bottom - help_h + 5))
+
+    def _draw_panel(self, rect, title, series, y_label, fixed_range=None):
+        """绘制单个波形面板：标题/单位/图例 + 网格 + 各序列折线"""
+        pygame.draw.rect(self.screen, (30, 30, 40), rect)
+        pygame.draw.rect(self.screen, (100, 100, 120), rect, 2)
+
+        # 标题（左上）与单位
+        t = self.font.render(title, True, (220, 220, 220))
+        self.screen.blit(t, (rect.left + 6, rect.top + 4))
+        u = self.font.render(y_label, True, (150, 150, 150))
+        self.screen.blit(u, (rect.left + 6 + t.get_width() + 8, rect.top + 4))
+
+        # 图例（右上）
+        ly = rect.top + 4
+        for color, name, _ in series:
+            pygame.draw.rect(self.screen, color, (rect.right - 76, ly + 4, 10, 10))
+            lab = self.font.render(name, True, (220, 220, 220))
+            self.screen.blit(lab, (rect.right - 62, ly))
+            ly += 16
+
+        plot_rect = rect.inflate(-28, -36)
+        plot_rect.y += 18
+        if plot_rect.width <= 8 or plot_rect.height <= 8:
             return
 
-        n_h_lines = 5
-        for i in range(n_h_lines + 1):
-            y_ratio = i / n_h_lines
-            y = plot_rect.bottom - y_ratio * plot_rect.height
-            angle_val = -self.angle_range + 2 * self.angle_range * y_ratio
-            pygame.draw.line(self.screen, (60, 60, 70),
-                             (plot_rect.left, y), (plot_rect.right, y), 1)
-            label = self.font.render(f"{angle_val:.1f}", True, (180, 180, 200))
-            self.screen.blit(label, (plot_rect.left - 35, y - 5))
+        # Y 范围：固定或自动（所有序列 min/max + 10% 边距）
+        if fixed_range is not None:
+            y_min, y_max = fixed_range
+        else:
+            vals = [v for _, _, dq in series for v in dq]
+            if not vals:
+                return
+            y_min, y_max = min(vals), max(vals)
+            if y_max - y_min < 1e-9:
+                y_min -= 1.0
+                y_max += 1.0
+            mg = (y_max - y_min) * 0.1
+            y_min -= mg
+            y_max += mg
 
-        n_v_lines = 6
-        for i in range(n_v_lines + 1):
-            x_ratio = i / n_v_lines
-            x = plot_rect.left + x_ratio * plot_rect.width
-            t_val = self.time_range * (1 - x_ratio)
+        # 水平网格 + Y 刻度
+        for i in range(6):
+            yr = i / 5
+            gy = plot_rect.bottom - yr * plot_rect.height
             pygame.draw.line(self.screen, (60, 60, 70),
-                             (x, plot_rect.top), (x, plot_rect.bottom), 1)
+                             (plot_rect.left, gy), (plot_rect.right, gy), 1)
+            val = y_min + yr * (y_max - y_min)
+            lab = self.font.render(f"{val:.1f}", True, (180, 180, 200))
+            self.screen.blit(lab, (plot_rect.left - lab.get_width() - 4, gy - 7))
+
+        # 竖直时间网格 + 时间刻度
+        for i in range(7):
+            xr = i / 6
+            gx = plot_rect.left + xr * plot_rect.width
+            pygame.draw.line(self.screen, (60, 60, 70),
+                             (gx, plot_rect.top), (gx, plot_rect.bottom), 1)
             if i % 2 == 0:
-                label = self.font.render(f"{t_val:.1f}s", True, (180, 180, 200))
-                self.screen.blit(label, (x - 20, plot_rect.bottom + 5))
+                tv = self.time_range * (1 - xr)
+                lab = self.font.render(f"{tv:.1f}s", True, (180, 180, 200))
+                self.screen.blit(lab, (gx - 12, plot_rect.bottom + 2))
 
+        # 序列折线
         n_points = int(self.time_range / self.dt)
-        angles_list = list(self.angles)[-n_points:]
-        targets_list = list(self.targets)[-n_points:]
-        errors_list = list(self.errors)[-n_points:]
-        if len(angles_list) < 2:
-            return
-
-        def angle_to_y(angle):
-            ratio = (angle + self.angle_range) / (2 * self.angle_range)
-            ratio = max(0.0, min(1.0, ratio))
-            return plot_rect.bottom - ratio * plot_rect.height
-
-        def index_to_x(idx):
-            ratio = idx / (len(angles_list) - 1)
-            return plot_rect.left + ratio * plot_rect.width
-
-        points_angle = [(index_to_x(i), angle_to_y(angles_list[i]))
-                        for i in range(len(angles_list))]
-        pygame.draw.lines(self.screen, (0, 200, 0), False, points_angle, 2)
-
-        points_target = [(index_to_x(i), angle_to_y(targets_list[i]))
-                         for i in range(len(targets_list))]
-        pygame.draw.lines(self.screen, (200, 50, 50), False, points_target, 2)
-
-        points_error = [(index_to_x(i), angle_to_y(errors_list[i]))
-                        for i in range(len(errors_list))]
-        pygame.draw.lines(self.screen, (240, 220, 60), False, points_error, 2)
-
-        legend_y = self.rect.top + 10
-        for color, text in [((0, 200, 0), "Actual"), ((200, 50, 50), "Target"), ((240, 220, 60), "Error")]:
-            pygame.draw.rect(self.screen, color, (self.rect.right - 70, legend_y, 12, 12))
-            label = self.font.render(text, True, (220, 220, 220))
-            self.screen.blit(label, (self.rect.right - 55, legend_y - 2))
-            legend_y += 18
-
-        help_text = self.font.render(f"TimeRange:{self.time_range:.1f}s  AngleRange:{self.angle_range:.1f}rad", True, (200, 200, 200))
-        self.screen.blit(help_text, (self.rect.x + 10, self.rect.bottom - 45))
-        help2 = self.font.render("Keys: +/- : TimeRange  [ / ] : AngleRange  ESC : quit", True, (150, 150, 150))
-        self.screen.blit(help2, (self.rect.x + 10, self.rect.bottom - 30))
+        for color, _name, dq in series:
+            data = list(dq)[-n_points:]
+            if len(data) < 2:
+                continue
+            pts = []
+            for idx, val in enumerate(data):
+                fx = idx / (len(data) - 1)
+                fy = (val - y_min) / max(y_max - y_min, 1e-9)
+                fy = max(0.0, min(1.0, fy))
+                pts.append((int(plot_rect.left + fx * plot_rect.width),
+                            int(plot_rect.bottom - fy * plot_rect.height)))
+            pygame.draw.lines(self.screen, color, False, pts, 2)
 
 
 # ================== 左侧绘图函数 (显示延迟后的目标) ==================
@@ -251,7 +304,7 @@ def main():
         dt_control=DT_CTRL,
         dt_sim=DT_MPC_SIM,
         J=J, tau_c=TAU_C, b=B_FRIC, tau_d=TAU_D,
-        max_omega=MAX_OMEGA, max_torque=MAX_TORQUE, max_torque_rate=MAX_TORQUE_RATE,
+        max_torque=MAX_TORQUE, max_torque_rate=MAX_TORQUE_RATE,
         N=MPC_PRED_N, Q=5.0, R=0.01, Rd=0.1, max_iter=30,
     )
 
@@ -355,11 +408,12 @@ def main():
 
         # ----- 曲线数据（wrap 到 [-π, π] 用于显示）-----
         theta_wrapped = wrap_angle(theta)
-        curve_plotter.add_point(theta_wrapped, wrap_angle(delayed_target))
+        curve_plotter.add_point(theta_wrapped, wrap_angle(delayed_target),
+                                omega_pred, omega, tau)
 
         # ----- 渲染 -----
         screen.fill((20, 20, 20))
-        draw_original(screen, font, theta_wrapped, wrap_angle(delayed_target), total_time, tau, omega, already_exceeded_time)
+        draw_original(screen, font, theta, delayed_target, total_time, tau, omega, already_exceeded_time)
         curve_plotter.draw()
         pygame.display.flip()
 

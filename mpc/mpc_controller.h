@@ -13,7 +13,6 @@
 // 限制:
 //   - 最大力矩   max_torque      (N·m)，参数硬边界
 //   - 最大力矩变化率 max_torque_rate (N·m/s)，通过增量重参数化硬约束
-//   - max_omega 参数保留（接口兼容），当前版本不施加任何速度限制
 //
 // 参考轨迹: theta_ref 为未来 N 个控制周期（长度 N）的多圈连续参考角度，
 //   ref[i] 对应预测 theta_pred[i+1]；位置误差直接相减（不归一化到 (-π, π]），
@@ -29,7 +28,7 @@ public:
 
     MPCController(double dt_control, double dt_sim,
                   double J, double tau_c, double b, double tau_d,
-                  double max_omega, double max_torque, double max_torque_rate,
+                  double max_torque, double max_torque_rate,
                   int N, double Q, double R, double Rd, int max_iter);
 
     Result step(double theta, double omega, const std::vector<double>& theta_ref);
@@ -53,7 +52,7 @@ private:
     double dt_control_, dt_sim_;
     int    steps_per_control_;
     double J_, tau_c_, b_, tau_d_;
-    double max_omega_, max_torque_, max_torque_rate_;   // max_omega_ 当前未使用（预留）
+    double max_torque_, max_torque_rate_;
     double rate_step_;   // 每个控制步允许的最大力矩增量 = max_torque_rate * dt_control
     int    N_;
     double Q_, R_, Rd_;

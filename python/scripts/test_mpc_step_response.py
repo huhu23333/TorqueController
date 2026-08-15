@@ -23,7 +23,7 @@ from torque_controller.sim_yaw_env import SimYawEnv
 
 # ================== 参数（与 pygame_control_mpc.py 一致）==================
 J, TAU_C, B, TAU_D = 0.016541, 0.097297, 0.0321, 0.0
-MAX_OMEGA, MAX_TORQUE, MAX_TORQUE_RATE = 30.0, 1.0, 10.0
+MAX_TORQUE, MAX_TORQUE_RATE = 1.0, 10.0
 N = 20
 DT = 0.01
 DT_SIM = 0.002
@@ -36,8 +36,7 @@ MAX_STEPS = 800
 def make_mpc():
     return MPCController(dt_control=DT, dt_sim=DT_SIM,
                          J=J, tau_c=TAU_C, b=B, tau_d=TAU_D,
-                         max_omega=MAX_OMEGA, max_torque=MAX_TORQUE,
-                         max_torque_rate=MAX_TORQUE_RATE,
+                         max_torque=MAX_TORQUE, max_torque_rate=MAX_TORQUE_RATE,
                          N=N, Q=5.0, R=0.01, Rd=0.1, max_iter=30)
 
 

@@ -15,7 +15,7 @@ class SimYawEnv:
     """yaw 轴动力学仿真环境，多圈连续角度（与 MPC 语义一致，不 wrap）。"""
 
     def __init__(self, J, tau_c, b, tau_d=0.0, dt_sim=0.002,
-                 lambda_omega=100.0, theta0=0.0, omega0=0.0, noise_std=0.0):
+                 lambda_omega=1000.0, theta0=0.0, omega0=0.0, noise_std=0.0):
         self.J = J
         self.tau_c = tau_c
         self.b = b
