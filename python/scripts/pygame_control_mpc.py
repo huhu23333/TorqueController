@@ -241,7 +241,7 @@ class CurvePlotter:
 
 
 # ================== 左侧绘图函数 (显示延迟后的目标) ==================
-def draw_original(screen, font, angle, delayed_target, total_time, tau, omega, already_exceeded_time):
+def draw_original(screen, font, angle, delayed_target, total_time, tau, omega, already_exceeded_time, temperature):
     line_y = CENTER_Y - B
     pygame.draw.line(screen, (180, 180, 180), (0, line_y), (ORIGIN_WIDTH, line_y), 1)
 
@@ -265,9 +265,11 @@ def draw_original(screen, font, angle, delayed_target, total_time, tau, omega, a
     time_surf = font.render(f"Time: {total_time:.4f} s, Exceeded: {already_exceeded_time} s", True, (255, 255, 255))
     angle_surf = font.render(f"Angle: {angle:.3f}  Target: {delayed_target:.3f}", True, (255, 255, 255))
     tau_surf = font.render(f"Torque: {tau:+.3f}  Omega: {omega:+.3f} rad/s", True, (255, 255, 255))
+    extra_surf = font.render(f"temperature: {temperature}°C", True, (255, 255, 255))
     screen.blit(time_surf, (10, 10))
     screen.blit(angle_surf, (10, 50))
     screen.blit(tau_surf, (10, 90))
+    screen.blit(extra_surf, (10, 130))
 
 
 # ================== 主函数 ==================
@@ -372,11 +374,13 @@ def main():
         if sim_mode:
             # 应用上一步 MPC 输出的力矩，推进一个控制周期
             theta, omega = env.step(tau, DT_CTRL)
+            temperature = 0
         else:
             data = robot.get_latest_data()
-            if data.mcu_valid:
-                theta = float(data.mcu_packet.yaw_angle)
-                omega = float(data.mcu_packet.yaw_omega)
+            theta = float(data.imu_packet.euler_yaw)
+            omega = float(data.imu_packet.gz)
+            temperature = data.mcu_packet.yaw_temperature
+
 
         # ----- 目标延迟缓冲 -----
         target_buffer.append((total_time, target_yaw))
@@ -398,7 +402,7 @@ def main():
             pkt = McuSendPacket(
                 auto_aim_enable=1,
                 pitch_target_angle=0.0,
-                yaw_torque_only_mode=0,
+                yaw_torque_only_mode=1,
                 yaw_target_angle=theta_pred,
                 yaw_target_velocity=omega_pred,
                 yaw_torque=tau,
@@ -413,7 +417,7 @@ def main():
 
         # ----- 渲染 -----
         screen.fill((20, 20, 20))
-        draw_original(screen, font, theta, delayed_target, total_time, tau, omega, already_exceeded_time)
+        draw_original(screen, font, theta, delayed_target, total_time, tau, omega, already_exceeded_time, temperature)
         curve_plotter.draw()
         pygame.display.flip()
 
