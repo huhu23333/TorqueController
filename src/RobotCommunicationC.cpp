@@ -99,6 +99,23 @@ RobotLatestData_C robot_comm_get_latest_data(RobotCommHandle* handle) {
     return result;
 }
 
+RobotFusedData_C robot_comm_get_fused_data(RobotCommHandle* handle) {
+    RobotFusedData_C result{};
+    if (!handle) return result;
+
+    auto f = handle->impl.getFused();
+
+    result.valid             = f.valid;
+    result.yaw_pos           = f.yaw_pos;
+    result.yaw_rate          = f.yaw_rate;
+    result.chassis_yaw       = f.chassis_yaw;
+    result.chassis_pitch     = f.chassis_pitch;
+    result.chassis_roll      = f.chassis_roll;
+    result.imu_yaw_unwrapped = f.imu_yaw_unwrapped;
+
+    return result;
+}
+
 bool robot_comm_send_to_mcu(RobotCommHandle* handle, const McuSendPacket_C* packet) {
     if (!handle || !packet) return false;
 

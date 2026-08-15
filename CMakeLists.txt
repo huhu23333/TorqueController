@@ -15,6 +15,7 @@ endif()
 set(COMMUNICATION_SOURCES
     src/CRC.cpp
     src/McuDataPreprocessor.cpp
+    src/FusionFilter.cpp
 )
 
 # 通信库头文件
@@ -24,6 +25,7 @@ set(COMMUNICATION_HEADERS
     include/Protocol.hpp
     include/Communications.hpp
     include/McuDataPreprocessor.h
+    include/FusionFilter.h
 )
 
 # 构建通信库

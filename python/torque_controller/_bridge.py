@@ -93,11 +93,26 @@ class RobotLatestData(Structure):
         ("mcu_valid",  c_bool), ("mcu_packet", McuReceivePacket),
     ]
 
+
+class RobotFusedData(Structure):
+    """融合输出：高频 yaw 位置/速度 + 底盘 world 系姿态"""
+    _fields_ = [
+        ("valid",              c_bool),
+        ("yaw_pos",            c_double),   # yaw 关节解卷绕位置 (rad, 多圈)
+        ("yaw_rate",           c_double),   # yaw 关节速度 (rad/s)
+        ("chassis_yaw",        c_double),   # 底盘 world 系 yaw（解卷绕）
+        ("chassis_pitch",      c_double),   # 底盘 world 系 pitch
+        ("chassis_roll",       c_double),   # 底盘 world 系 roll
+        ("imu_yaw_unwrapped",  c_double),   # IMU euler yaw 解卷绕
+    ]
+
 # ── 函数签名 ──
 _lib.robot_comm_create.restype             = ctypes.c_void_p
 _lib.robot_comm_destroy.argtypes           = [ctypes.c_void_p]
 _lib.robot_comm_get_latest_data.argtypes   = [ctypes.c_void_p]
 _lib.robot_comm_get_latest_data.restype    = RobotLatestData
+_lib.robot_comm_get_fused_data.argtypes    = [ctypes.c_void_p]
+_lib.robot_comm_get_fused_data.restype     = RobotFusedData
 _lib.robot_comm_send_to_mcu.argtypes       = [ctypes.c_void_p, ctypes.POINTER(McuSendPacket)]
 _lib.robot_comm_send_to_mcu.restype        = c_bool
 _lib.robot_comm_send_to_imu.argtypes       = [ctypes.c_void_p, ctypes.POINTER(ImuSendPacket)]
@@ -115,6 +130,9 @@ class RobotCommunication:
 
     def get_latest_data(self) -> RobotLatestData:
         return _lib.robot_comm_get_latest_data(self._handle)
+
+    def get_fused_data(self) -> RobotFusedData:
+        return _lib.robot_comm_get_fused_data(self._handle)
 
     def send_to_mcu(self, packet: McuSendPacket) -> bool:
         return _lib.robot_comm_send_to_mcu(self._handle, ctypes.byref(packet))

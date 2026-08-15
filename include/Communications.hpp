@@ -10,6 +10,7 @@
 #include "Protocol.hpp"
 #include "CRC.h"
 #include "McuDataPreprocessor.h"
+#include "FusionFilter.h"
 #include <string>
 #include <mutex>
 
@@ -61,9 +62,11 @@ public:
         mcu::ReceivePacket mcu_packet{};
     };
 
+    // 融合权重使用 YawChassisFusion 构造默认值（imu_weight=1.0）
     RobotCommunication()
         : mcu_serial_([this](const mcu::ReceivePacket& pkt) { onMcuReceive(pkt); }, false)
         , imu_serial_([this](const imu::ReceivePacket& pkt) { onImuReceive(pkt); }, false)
+        , fusion_()
     {
         mcu_serial_.startWorker();
         imu_serial_.startWorker();
@@ -110,18 +113,31 @@ public:
         imu_serial_.stopWorker();
     }
 
+    // 融合输出：高频 yaw 关节解卷绕位置/速度 + 底盘 world 系姿态
+    // （IMU 高频积分 + MCU yaw 绝对位置校正，线程安全）
+    YawChassisFusion::Output getFused() const {
+        return fusion_.output();
+    }
+
 private:
-    // ── 回调：仅存储原始数据，不做预处理 ──
+    // ── 回调：存储原始数据 + 喂融合滤波器 ──
     void onImuReceive(const imu::ReceivePacket& packet) {
-        std::lock_guard<std::mutex> lock(imu_mutex_);
-        latest_imu_packet_ = packet;
-        has_imu_data_      = true;
+        {
+            std::lock_guard<std::mutex> lock(imu_mutex_);
+            latest_imu_packet_ = packet;
+            has_imu_data_      = true;
+        }
+        fusion_.onImu(packet.euler_yaw, packet.euler_pitch, packet.euler_roll,
+                      packet.gx, packet.gy, packet.gz);
     }
 
     void onMcuReceive(const mcu::ReceivePacket& packet) {
-        std::lock_guard<std::mutex> lock(mcu_mutex_);
-        latest_mcu_packet_ = packet;   // 原始数据，预处理推迟到 getLatestData()
-        has_mcu_data_      = true;
+        {
+            std::lock_guard<std::mutex> lock(mcu_mutex_);
+            latest_mcu_packet_ = packet;   // 原始数据，预处理推迟到 getLatestData()
+            has_mcu_data_      = true;
+        }
+        fusion_.onMcu(packet.yaw_angle, packet.yaw_omega, packet.pitch_angle);
     }
 
     // ── 成员变量 ──
@@ -135,6 +151,8 @@ private:
     std::mutex         mcu_mutex_;
     mcu::ReceivePacket latest_mcu_packet_{};
     bool               has_mcu_data_ = false;
+
+    YawChassisFusion   fusion_;   // IMU 高频 + MCU 低频融合滤波器
 };
 
 #endif // COMMUNICATIONS_HPP

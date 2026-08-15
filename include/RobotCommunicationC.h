@@ -97,6 +97,17 @@ typedef struct {
     McuReceivePacket_C mcu_packet;
 } RobotLatestData_C;
 
+// ── 融合输出（IMU 高频 + MCU 低频）──
+typedef struct {
+    bool   valid;                // yaw_angle 绝对基准已到位
+    double yaw_pos;              // yaw 关节解卷绕位置 (rad, 多圈)
+    double yaw_rate;             // yaw 关节速度 (rad/s)
+    double chassis_yaw;          // 底盘 world 系 yaw（解卷绕）
+    double chassis_pitch;        // 底盘 world 系 pitch (rad)
+    double chassis_roll;         // 底盘 world 系 roll (rad)
+    double imu_yaw_unwrapped;    // IMU euler yaw 解卷绕 (rad)
+} RobotFusedData_C;
+
 // ── 不透明句柄 ──
 typedef struct RobotCommHandle RobotCommHandle;
 
@@ -112,6 +123,9 @@ void robot_comm_destroy(RobotCommHandle* handle);
 
 // 获取最新 IMU 和 MCU 数据（MCU 接收数据会在此处做预处理）
 RobotLatestData_C robot_comm_get_latest_data(RobotCommHandle* handle);
+
+// 获取融合输出（高频 yaw 位置/速度 + 底盘姿态）
+RobotFusedData_C robot_comm_get_fused_data(RobotCommHandle* handle);
 
 // 发送 MCU 数据（发送前做预处理）
 bool robot_comm_send_to_mcu(RobotCommHandle* handle, const McuSendPacket_C* packet);

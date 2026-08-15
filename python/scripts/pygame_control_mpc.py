@@ -288,18 +288,18 @@ def main():
         theta, omega = env.state
         robot = None
     else:
-        # 实控模式：连接 MCU 串口
+        # 实控模式：连接 MCU 串口，使用融合滤波器输出（高频 yaw + 底盘姿态）
         robot = RobotCommunication()
-        print("Waiting for IMU & MCU data...")
+        print("Waiting for fused data (IMU + MCU yaw)...")
         while True:
-            data = robot.get_latest_data()
-            if data.mcu_valid:
+            fused = robot.get_fused_data()
+            if fused.valid:
                 break
             time.sleep(0.01)
-        print("MCU data received. Starting MPC control loop.")
-        # 当前状态（来自 MCU 编码器，多圈连续）
-        theta = float(data.mcu_packet.yaw_angle)
-        omega = float(data.mcu_packet.yaw_omega)
+        print("Fused data ready. Starting MPC control loop.")
+        # 当前状态（融合解卷绕位置 + 高频速度，多圈连续）
+        theta = fused.yaw_pos
+        omega = fused.yaw_rate
 
     # MPC 控制器（辨识参数，tau_d=0）
     mpc = MPCController(
@@ -370,15 +370,17 @@ def main():
             dx, _ = pygame.mouse.get_rel()
             target_yaw -= dx * YAW_SENS
 
-        # ----- 读取状态（仿真=环境推进, 实控=MCU 编码器）-----
+        # ----- 读取状态（仿真=环境推进, 实控=融合滤波器输出）-----
         if sim_mode:
             # 应用上一步 MPC 输出的力矩，推进一个控制周期
             theta, omega = env.step(tau, DT_CTRL)
             temperature = 0
         else:
-            data = robot.get_latest_data()
-            theta = float(data.imu_packet.euler_yaw)
-            omega = float(data.imu_packet.gz)
+            fused = robot.get_fused_data()
+            if fused.valid:
+                theta = fused.yaw_pos          # 解卷绕多圈位置
+                omega = fused.yaw_rate         # 高频速度
+            data = robot.get_latest_data()     # 仅用于温度显示
             temperature = data.mcu_packet.yaw_temperature
 
 
@@ -402,7 +404,7 @@ def main():
             pkt = McuSendPacket(
                 auto_aim_enable=1,
                 pitch_target_angle=0.0,
-                yaw_torque_only_mode=1,
+                yaw_torque_only_mode=0,
                 yaw_target_angle=theta_pred,
                 yaw_target_velocity=omega_pred,
                 yaw_torque=tau,
