@@ -381,7 +381,6 @@ def main():
                 theta = fused.yaw_pos          # 解卷绕多圈位置
                 omega = fused.yaw_rate         # 高频速度
                 theta_imu = fused.imu_yaw_unwrapped
-                theta_chassis = fused.chassis_yaw
             data = robot.get_latest_data()     # 仅用于温度显示
             temperature = data.mcu_packet.yaw_temperature
             if data.mcu_valid:
@@ -395,8 +394,12 @@ def main():
 
         # ----- MPC 求解（参考轨迹：长度 N，恒定取延迟目标，多圈不归一化）-----
         ref = []
-        for i in range(len(target_buffer)):
-            ref.append(target_buffer[i][1] - ((theta_imu - theta) + (i+1) * DT_CTRL * chassis_imu_omega))
+        if sim_mode:
+            for i in range(len(target_buffer)):
+                ref.append(target_buffer[i][1])
+        else:
+            for i in range(len(target_buffer)):
+                ref.append(target_buffer[i][1] - ((theta_imu - theta) + (i+1) * DT_CTRL * chassis_imu_omega))
         if len(ref) < MPC_PRED_N:
             ref = ref + [ref[-1]] * (MPC_PRED_N - len(ref))
 
@@ -416,13 +419,13 @@ def main():
             robot.send_to_mcu(pkt)
 
         # ----- 曲线数据（wrap 到 [-π, π] 用于显示）-----
-        theta_wrapped = wrap_angle(theta_imu)
+        theta_wrapped = wrap_angle(theta_imu if not sim_mode else theta)
         curve_plotter.add_point(theta_wrapped, wrap_angle(delayed_target),
                                 omega_pred, omega, tau)
 
         # ----- 渲染 -----
         screen.fill((20, 20, 20))
-        draw_original(screen, font, theta_imu, delayed_target, total_time, tau, omega, already_exceeded_time, temperature)
+        draw_original(screen, font, theta_imu if not sim_mode else theta, delayed_target, total_time, tau, omega, already_exceeded_time, temperature)
         curve_plotter.draw()
         pygame.display.flip()
 
