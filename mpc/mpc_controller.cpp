@@ -6,52 +6,9 @@
 #include <ceres/ceres.h>
 
 // ------------------------------------------------------------
-// 辅助函数
-// ------------------------------------------------------------
-double MPCController::frictionTorque(double omega) const {
-    // 软符号斜率：λ=1e4 会使摩擦在 ω≈0 附近过刚，显式欧拉在 dt=1e-3 下发散；
-    // 取 λ=100（Stribeck 速度约 0.01 rad/s）在保持 Coulomb 摩擦幅值不变的同时保证数值稳定。
-    const double lambda_omega = 100.0;
-    double soft_sign = std::tanh(lambda_omega * omega);
-    return -soft_sign * tau_c_ - b_ * omega;
-}
-
-std::pair<double, double> MPCController::dynamicsStep(double theta, double omega,
-                                                      double tau, double dt) const {
-    double tau_f = frictionTorque(omega);
-    double tau_net = tau + tau_f + tau_d_;
-    double alpha = tau_net / J_;
-    double omega_new = omega + alpha * dt;
-    double theta_new = theta + omega_new * dt;
-    return {theta_new, omega_new};
-}
-
-void MPCController::predictTrajectory(double theta0, double omega0,
-                                      const std::vector<double>& u_seq,
-                                      std::vector<double>& theta_pred,
-                                      std::vector<double>& omega_pred) const {
-    theta_pred.clear();
-    omega_pred.clear();
-    theta_pred.reserve(N_ + 1);
-    omega_pred.reserve(N_ + 1);
-
-    double theta = theta0, omega = omega0;
-    theta_pred.push_back(theta);
-    omega_pred.push_back(omega);
-    for (int k = 0; k < N_; ++k) {
-        double tau = u_seq[k];
-        for (int step = 0; step < steps_per_control_; ++step) {
-            auto p = dynamicsStep(theta, omega, tau, dt_sim_);
-            theta = p.first;
-            omega = p.second;
-        }
-        theta_pred.push_back(theta);
-        omega_pred.push_back(omega);
-    }
-}
-
-// ------------------------------------------------------------
 // Ceres 代价函数（增量重参数化：d[0]=u[0]，d[k]=u[k]-u[k-1]）
+// 模板化 operator()：T = ceres::Jet 时由 DynamicAutoDiffCostFunction
+// 通过链式法则自动求导（动力学经 predictTrajectory 模板传播梯度）。
 // ------------------------------------------------------------
 class MPCCostFunctor {
 public:
@@ -59,26 +16,28 @@ public:
                    const std::vector<double>& theta_ref)
         : mpc_(mpc), theta0_(theta0), omega0_(omega0), theta_ref_(theta_ref) {}
 
-    bool operator()(double const* const* parameters, double* residuals) const {
-        const double* d = parameters[0];
+    template <typename T>
+    bool operator()(T const* const* parameters, T* residuals) const {
+        const T* d = parameters[0];
         const int N = mpc_->N();
 
         // 由增量 d 重建力矩序列 u（第一步相对上次实际力矩，含最大力矩硬限幅）
-        std::vector<double> u(N);
-        u[0] = std::clamp(mpc_->prevTorque() + d[0], -mpc_->maxTorque(), mpc_->maxTorque());
+        const T tau_max = T(mpc_->maxTorque());
+        std::vector<T> u(N);
+        u[0] = std::clamp(mpc_->prevTorque() + d[0], -tau_max, tau_max);
         for (int k = 1; k < N; ++k) {
-            double u_k = u[k - 1] + d[k];
-            u[k] = std::clamp(u_k, -mpc_->maxTorque(), mpc_->maxTorque());
+            T u_k = u[k - 1] + d[k];
+            u[k] = std::clamp(u_k, -tau_max, tau_max);
         }
 
-        std::vector<double> theta_pred, omega_pred;
-        mpc_->predictTrajectory(theta0_, omega0_, u, theta_pred, omega_pred);
+        std::vector<T> theta_pred, omega_pred;
+        mpc_->predictTrajectory(T(theta0_), T(omega0_), u, theta_pred, omega_pred);
 
         int idx = 0;
         // 位置跟踪误差：直接相减，不归一化（多圈连续语义，
         // ref[i] 对应预测 theta_pred[i+1]，i = 0..N-1）
         for (int k = 0; k < N; ++k) {
-            double err = theta_pred[k + 1] - theta_ref_[k];
+            T err = theta_pred[k + 1] - theta_ref_[k];
             residuals[idx++] = std::sqrt(mpc_->Q()) * err;
         }
         // 控制量惩罚
@@ -145,7 +104,8 @@ MPCController::Result MPCController::step(double theta, double omega,
     MPCCostFunctor* cost_functor = new MPCCostFunctor(this, theta, omega, ref_copy);
     // 残差 = 位置误差(N) + 控制量惩罚(N) + 力矩变化率惩罚(N-1)
     int num_residuals = N_ + N_ + (N_ - 1);
-    auto* cost_function = new ceres::DynamicNumericDiffCostFunction<MPCCostFunctor>(
+    // 自动求导：动力学模板化，Ceres 用 Jet 链式法则计算雅可比（替代数值微分）
+    auto* cost_function = new ceres::DynamicAutoDiffCostFunction<MPCCostFunctor>(
         cost_functor, ceres::TAKE_OWNERSHIP);
     cost_function->SetNumResiduals(num_residuals);
     cost_function->AddParameterBlock(N_);

@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <utility>
+#include <cmath>
+#include <algorithm>
 
 // ============================================================================
 // MPCController — 偏航轴 MPC 求解器（Ceres）
@@ -17,6 +19,10 @@
 // 参考轨迹: theta_ref 为未来 N 个控制周期（长度 N）的多圈连续参考角度，
 //   ref[i] 对应预测 theta_pred[i+1]；位置误差直接相减（不归一化到 (-π, π]），
 //   保留圈数语义——目标与当前状态差多少圈就跟踪多少圈。
+//
+// 求导方式: 动力学/代价函数均模板化（T = double 或 ceres::Jet），
+//   由 Ceres DynamicAutoDiffCostFunction 自动求导（链式法则），
+//   替代原先的有限差分数值微分。
 // ============================================================================
 class MPCController {
 public:
@@ -33,11 +39,31 @@ public:
 
     Result step(double theta, double omega, const std::vector<double>& theta_ref);
 
-    // 供 CostFunctor 调用
-    void predictTrajectory(double theta0, double omega0,
-                           const std::vector<double>& u_seq,
-                           std::vector<double>& theta_pred,
-                           std::vector<double>& omega_pred) const;
+    // ── 供 CostFunctor 调用（模板：double 运行时 / ceres::Jet 自动求导）──
+    template <typename T>
+    void predictTrajectory(const T& theta0, const T& omega0,
+                           const std::vector<T>& u_seq,
+                           std::vector<T>& theta_pred,
+                           std::vector<T>& omega_pred) const {
+        theta_pred.clear();
+        omega_pred.clear();
+        theta_pred.reserve(N_ + 1);
+        omega_pred.reserve(N_ + 1);
+
+        T theta = theta0, omega = omega0;
+        theta_pred.push_back(theta);
+        omega_pred.push_back(omega);
+        for (int k = 0; k < N_; ++k) {
+            T tau = u_seq[k];
+            for (int step = 0; step < steps_per_control_; ++step) {
+                auto p = dynamicsStep(theta, omega, tau, dt_sim_);
+                theta = p.first;
+                omega = p.second;
+            }
+            theta_pred.push_back(theta);
+            omega_pred.push_back(omega);
+        }
+    }
 
     // 供 CostFunctor 读取
     int    N()          const { return N_; }
@@ -63,9 +89,25 @@ private:
     // 上一次实际施加的力矩（用于第一步力矩变化率硬约束）
     double prev_torque_ = 0.0;
 
-    double frictionTorque(double omega) const;
-    std::pair<double, double> dynamicsStep(double theta, double omega,
-                                           double tau, double dt) const;
+    // 摩擦力矩（软符号 tanh；tanh 依赖 ADL：double → ::tanh，Jet → ceres::tanh）
+    template <typename T>
+    T frictionTorque(const T& omega) const {
+        const double lambda_omega = 100.0;
+        T soft_sign = tanh(lambda_omega * omega);
+        return -soft_sign * tau_c_ - b_ * omega;
+    }
+
+    // 单步显式欧拉动力学（不对速度做任何截断/限制）
+    template <typename T>
+    std::pair<T, T> dynamicsStep(const T& theta, const T& omega,
+                                 const T& tau, double dt) const {
+        T tau_f = frictionTorque(omega);
+        T tau_net = tau + tau_f + tau_d_;
+        T alpha = tau_net / J_;
+        T omega_new = omega + alpha * dt;
+        T theta_new = theta + omega_new * dt;
+        return {theta_new, omega_new};
+    }
 };
 
 #endif // MPC_CONTROLLER_H
