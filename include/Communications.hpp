@@ -49,8 +49,8 @@ using ImuCommunication = SerialProtocol<
 // ============================================================================
 // RobotCommunication — 组合 MCU 与 IMU 通信，封装数据预处理
 // ============================================================================
-// - 回调中直接存储原始数据，不做预处理
-// - McuDataPreprocessor 仅在获取数据 (getLatestData) 或发送 MCU 数据 (sendToMcu) 时使用
+// - 回调中直接存储预处理后的 MCU 数据（latest_mcu_packet_ 不再存原始数据）
+// - McuDataPreprocessor 在接收回调与发送 MCU 数据 (sendToMcu) 时使用
 // - 提供统一的最新数据获取接口和分离的发送接口
 // ============================================================================
 class RobotCommunication {
@@ -77,7 +77,7 @@ public:
         imu_serial_.stopWorker();
     }
 
-    // 获取最新数据（MCU 接收数据在此预处理）
+    // 获取最新数据（MCU 数据已在回调中预处理）
     LatestData getLatestData() {
         LatestData data;
         {
@@ -90,7 +90,7 @@ public:
         {
             std::lock_guard<std::mutex> lock(mcu_mutex_);
             if (has_mcu_data_) {
-                data.mcu_packet = McuDataPreprocessor::processReceive(latest_mcu_packet_);
+                data.mcu_packet = latest_mcu_packet_;   // 已预处理
                 data.mcu_valid  = true;
             }
         }
@@ -132,12 +132,15 @@ private:
     }
 
     void onMcuReceive(const mcu::ReceivePacket& packet) {
+        // 预处理后直接存储（latest_mcu_packet_ 不再存原始数据）
+        mcu::ReceivePacket processed = McuDataPreprocessor::processReceive(packet);
         {
             std::lock_guard<std::mutex> lock(mcu_mutex_);
-            latest_mcu_packet_ = packet;   // 原始数据，预处理推迟到 getLatestData()
+            latest_mcu_packet_ = processed;
             has_mcu_data_      = true;
         }
-        fusion_.onMcu(packet.yaw_angle, packet.yaw_omega, packet.pitch_angle);
+        // 喂融合滤波器的数据同样为预处理后的（与 latest_mcu_packet_ 语义一致）
+        fusion_.onMcu(processed.yaw_angle, processed.yaw_omega, processed.pitch_angle);
     }
 
     // ── 成员变量 ──
