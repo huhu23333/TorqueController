@@ -57,7 +57,7 @@ TAU_D   = 0.0            # tau_d 设为 0
 
 # ================== 约束 ==================
 MAX_TORQUE      = 1.0    # 最大力矩 (N·m)
-MAX_TORQUE_RATE = 10.0   # 最大力矩变化率 (N·m/s)
+MAX_TORQUE_RATE = 40.0   # 最大力矩变化率 (N·m/s)
 
 TWO_PI = 2.0 * math.pi
 
