@@ -136,6 +136,57 @@ bool robot_comm_send_to_imu(RobotCommHandle* handle, const ImuSendPacket_C* pack
 // 停止通信
 void robot_comm_stop(RobotCommHandle* handle);
 
+// ── yaw MPC 求解（参考序列 + 求解，不发送；返回将要发送的值）──
+typedef void* YawMpcHandle_C;
+
+typedef struct {
+    double yaw_target_angle;    // 预测位置 → 发送 yaw_target_angle (rad)
+    double yaw_target_velocity; // 预测速度 → 发送 yaw_target_velocity (rad/s)
+    double yaw_torque;          // 控制力矩 → 发送 yaw_torque (N·m)
+    double delayed_target;      // 当前参考（延迟 dt*N 步的目标），供显示
+} YawMpcStepResult_C;
+
+// 创建 yaw MPC 求解器（comm: robot_comm_create 返回的句柄）
+YawMpcHandle_C yaw_mpc_create(RobotCommHandle* comm, double dt_control, int N,
+                              double J, double tau_c, double b, double tau_d,
+                              double max_torque, double max_torque_rate,
+                              double Q, double R, double Rd, int max_iter);
+
+// 销毁
+void yaw_mpc_destroy(YawMpcHandle_C handle);
+
+// 每步调用：只传目标位置（内部读融合状态、维护延迟参考序列、求解）
+// 返回将要发送的 yaw_target_angle / yaw_target_velocity / yaw_torque（不发送）
+YawMpcStepResult_C yaw_mpc_step(YawMpcHandle_C handle, double target_yaw);
+
+// ── 实车 MCU 控制封装（设置 + 后台 100Hz 发送线程）──
+typedef void* McuMpcHandle_C;
+
+typedef struct {
+    double yaw_target_angle;    // 最新预测位置 (rad)
+    double yaw_target_velocity; // 最新预测速度 (rad/s)
+    double yaw_torque;          // 最新控制力矩 (N·m)
+    double delayed_target;      // 当前参考（延迟 dt*N 步的目标）
+} McuMpcState_C;
+
+// 创建封装并自动启动后台 100Hz 发送线程
+McuMpcHandle_C mcu_mpc_create(RobotCommHandle* comm, double dt_control, int N,
+                              double J, double tau_c, double b, double tau_d,
+                              double max_torque, double max_torque_rate,
+                              double Q, double R, double Rd, int max_iter);
+
+// 销毁（停止并 join 后台线程）
+void mcu_mpc_destroy(McuMpcHandle_C handle);
+
+// 设置发送参数 + mpc 目标（target_yaw 给 mpc，其余由封装类维护；
+// target_yaw 自动转换到与 imu_yaw_unwrapped 同一圈内的值）
+void mcu_mpc_step(McuMpcHandle_C handle,
+                  uint8_t auto_aim_enable, uint8_t yaw_torque_only_mode,
+                  double target_yaw, float pitch_target_angle, uint8_t fire);
+
+// 获取最新 mpc 结果（供显示）
+McuMpcState_C mcu_mpc_get_state(McuMpcHandle_C handle);
+
 #ifdef __cplusplus
 }
 #endif

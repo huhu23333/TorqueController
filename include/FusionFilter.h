@@ -71,6 +71,11 @@ public:
     // 读取融合输出（线程安全：回调线程写、主线程读）
     Output output() const;
 
+    // 重新锚定 imu_yaw_unwrapped：将其设到与 yaw_pos 夹角最近的圈内
+    // （|差| ≤ π）。用于解卷绕错位（imu_yaw_unwrapped 与 yaw_pos 相差数圈）后的修复；
+    // 同时补偿 bias_，保持 chassis_yaw 输出连续。线程安全。
+    void reanchorImuYaw();
+
     // 复位（重上电/重连时调用）
     void reset();
 

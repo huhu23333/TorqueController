@@ -2,7 +2,7 @@
 
 import ctypes
 import os
-from ctypes import Structure, c_uint8, c_float, c_double, c_uint32, c_bool
+from ctypes import Structure, c_uint8, c_float, c_double, c_uint32, c_bool, c_int
 
 def _find_lib():
     candidates = [
@@ -106,6 +106,26 @@ class RobotFusedData(Structure):
         ("imu_yaw_unwrapped",  c_double),   # IMU euler yaw 解卷绕
     ]
 
+
+class YawMpcStepResult(Structure):
+    """yaw MPC 一步结果（返回将要发送的值，不发送）"""
+    _fields_ = [
+        ("yaw_target_angle",    c_double),   # 预测位置 → yaw_target_angle (rad)
+        ("yaw_target_velocity", c_double),   # 预测速度 → yaw_target_velocity (rad/s)
+        ("yaw_torque",          c_double),   # 控制力矩 → yaw_torque (N·m)
+        ("delayed_target",      c_double),   # 当前参考（延迟 dt*N 步的目标）
+    ]
+
+
+class McuMpcState(Structure):
+    """实车 MCU 控制封装的最新 mpc 结果（后台线程更新）"""
+    _fields_ = [
+        ("yaw_target_angle",    c_double),
+        ("yaw_target_velocity", c_double),
+        ("yaw_torque",          c_double),
+        ("delayed_target",      c_double),
+    ]
+
 # ── 函数签名 ──
 _lib.robot_comm_create.restype             = ctypes.c_void_p
 _lib.robot_comm_destroy.argtypes           = [ctypes.c_void_p]
@@ -118,6 +138,93 @@ _lib.robot_comm_send_to_mcu.restype        = c_bool
 _lib.robot_comm_send_to_imu.argtypes       = [ctypes.c_void_p, ctypes.POINTER(ImuSendPacket)]
 _lib.robot_comm_send_to_imu.restype        = c_bool
 _lib.robot_comm_stop.argtypes              = [ctypes.c_void_p]
+
+_lib.yaw_mpc_create.argtypes = [
+    ctypes.c_void_p,                       # RobotCommHandle*
+    c_double,                              # dt_control
+    c_int,                                 # N
+    c_double, c_double, c_double, c_double,   # J, tau_c, b, tau_d
+    c_double, c_double,                    # max_torque, max_torque_rate
+    c_double, c_double, c_double,          # Q, R, Rd
+    c_int,                                 # max_iter
+]
+_lib.yaw_mpc_create.restype = ctypes.c_void_p
+_lib.yaw_mpc_destroy.argtypes = [ctypes.c_void_p]
+_lib.yaw_mpc_step.argtypes = [ctypes.c_void_p, c_double]
+_lib.yaw_mpc_step.restype = YawMpcStepResult
+
+_lib.mcu_mpc_create.argtypes = _lib.yaw_mpc_create.argtypes
+_lib.mcu_mpc_create.restype = ctypes.c_void_p
+_lib.mcu_mpc_destroy.argtypes = [ctypes.c_void_p]
+_lib.mcu_mpc_step.argtypes = [
+    ctypes.c_void_p,                       # handle
+    c_uint8, c_uint8,                      # auto_aim_enable, yaw_torque_only_mode
+    c_double,                              # target_yaw
+    c_float, c_uint8,                      # pitch_target_angle, fire
+]
+_lib.mcu_mpc_get_state.argtypes = [ctypes.c_void_p]
+_lib.mcu_mpc_get_state.restype = McuMpcState
+
+
+class YawMpcController:
+    """yaw MPC 求解器（C++ 实现：参考序列 + 求解；返回发送值，不发送）"""
+
+    def __init__(self, comm_handle, dt_control, N,
+                 J, tau_c, b, tau_d=0.0,
+                 max_torque=1.0, max_torque_rate=10.0,
+                 Q=5.0, R=0.01, Rd=0.1, max_iter=30):
+        self._handle = _lib.yaw_mpc_create(
+            comm_handle, float(dt_control), int(N),
+            J, tau_c, b, tau_d,
+            max_torque, max_torque_rate,
+            Q, R, Rd, int(max_iter),
+        )
+        if not self._handle:
+            raise RuntimeError("yaw_mpc_create() returned NULL")
+
+    def step(self, target_yaw) -> YawMpcStepResult:
+        """传入目标位置，返回 (yaw_target_angle, yaw_target_velocity, yaw_torque, delayed_target)。"""
+        return _lib.yaw_mpc_step(self._handle, float(target_yaw))
+
+    def __del__(self):
+        if getattr(self, "_handle", None):
+            _lib.yaw_mpc_destroy(self._handle)
+            self._handle = None
+
+
+class McuMpcController:
+    """实车 MCU 控制封装（C++：设置维护 + 后台 100Hz 发送线程）"""
+
+    def __init__(self, comm_handle, dt_control, N,
+                 J, tau_c, b, tau_d=0.0,
+                 max_torque=1.0, max_torque_rate=10.0,
+                 Q=5.0, R=0.01, Rd=0.1, max_iter=30):
+        self._handle = _lib.mcu_mpc_create(
+            comm_handle, float(dt_control), int(N),
+            J, tau_c, b, tau_d,
+            max_torque, max_torque_rate,
+            Q, R, Rd, int(max_iter),
+        )
+        if not self._handle:
+            raise RuntimeError("mcu_mpc_create() returned NULL")
+
+    def set(self, auto_aim_enable=1, yaw_torque_only_mode=0, target_yaw=0.0,
+            pitch_target_angle=0.0, fire=0):
+        """设置发送参数 + mpc 目标（顺序：auto_aim_enable, yaw_torque_only_mode,
+        target_yaw, pitch_target_angle, fire）。target_yaw 由 C++ 自动转换到与
+        imu_yaw_unwrapped 同一圈内；后台线程固定 100Hz 求解并发送给 MCU。"""
+        _lib.mcu_mpc_step(self._handle,
+                          int(auto_aim_enable), int(yaw_torque_only_mode),
+                          float(target_yaw), float(pitch_target_angle), int(fire))
+
+    def get_state(self) -> McuMpcState:
+        """最新 mpc 结果（后台线程更新，供显示）"""
+        return _lib.mcu_mpc_get_state(self._handle)
+
+    def __del__(self):
+        if getattr(self, "_handle", None):
+            _lib.mcu_mpc_destroy(self._handle)
+            self._handle = None
 
 
 class RobotCommunication:
@@ -139,6 +246,14 @@ class RobotCommunication:
 
     def send_to_imu(self, packet: ImuSendPacket) -> bool:
         return _lib.robot_comm_send_to_imu(self._handle, ctypes.byref(packet))
+
+    def create_mpc(self, **kwargs) -> YawMpcController:
+        """创建 yaw MPC 求解器（参数见 YawMpcController；返回发送值，不发送）"""
+        return YawMpcController(self._handle, **kwargs)
+
+    def create_mcu_mpc(self, **kwargs) -> McuMpcController:
+        """创建实车 MCU 控制封装（后台 100Hz 自动发送，参数见 McuMpcController）"""
+        return McuMpcController(self._handle, **kwargs)
 
     def stop(self):
         _lib.robot_comm_stop(self._handle)

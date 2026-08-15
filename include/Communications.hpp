@@ -119,6 +119,11 @@ public:
         return fusion_.output();
     }
 
+    // 重新锚定 imu_yaw_unwrapped 到与 yaw_pos 夹角最近的圈内（线程安全）
+    void reanchorImuYaw() {
+        fusion_.reanchorImuYaw();
+    }
+
 private:
     // ── 回调：存储原始数据 + 喂融合滤波器 ──
     void onImuReceive(const imu::ReceivePacket& packet) {

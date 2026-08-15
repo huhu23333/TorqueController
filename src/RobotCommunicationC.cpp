@@ -2,6 +2,8 @@
 
 #include "RobotCommunicationC.h"
 #include "Communications.hpp"
+#include "yaw_mpc_controller.h"
+#include "mcu_mpc_controller.h"
 #include <cstring>
 #include <new>
 
@@ -136,6 +138,87 @@ bool robot_comm_send_to_imu(RobotCommHandle* handle, const ImuSendPacket_C* pack
 void robot_comm_stop(RobotCommHandle* handle) {
     if (handle)
         handle->impl.stop();
+}
+
+// ============================================================================
+// 实车 MPC 控制器 C API（替代旧 mpc_c_api）
+// ============================================================================
+
+YawMpcHandle_C yaw_mpc_create(RobotCommHandle* comm, double dt_control, int N,
+                              double J, double tau_c, double b, double tau_d,
+                              double max_torque, double max_torque_rate,
+                              double Q, double R, double Rd, int max_iter) {
+    if (!comm) return nullptr;
+    try {
+        return static_cast<YawMpcHandle_C>(new YawMpcController(
+            &comm->impl, dt_control, N,
+            J, tau_c, b, tau_d,
+            max_torque, max_torque_rate,
+            Q, R, Rd, max_iter));
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+void yaw_mpc_destroy(YawMpcHandle_C handle) {
+    delete static_cast<YawMpcController*>(handle);
+}
+
+YawMpcStepResult_C yaw_mpc_step(YawMpcHandle_C handle, double target_yaw) {
+    YawMpcStepResult_C out{};
+    if (!handle) return out;
+    auto r = static_cast<YawMpcController*>(handle)->step(target_yaw);
+    out.yaw_target_angle    = r.yaw_target_angle;
+    out.yaw_target_velocity = r.yaw_target_velocity;
+    out.yaw_torque          = r.yaw_torque;
+    out.delayed_target      = r.delayed_target;
+    return out;
+}
+
+// ============================================================================
+// 实车 MCU 控制封装 C API（设置 + 后台 100Hz 发送线程）
+// ============================================================================
+
+McuMpcHandle_C mcu_mpc_create(RobotCommHandle* comm, double dt_control, int N,
+                              double J, double tau_c, double b, double tau_d,
+                              double max_torque, double max_torque_rate,
+                              double Q, double R, double Rd, int max_iter) {
+    if (!comm) return nullptr;
+    try {
+        auto* ctl = new McuMpcController(
+            &comm->impl, dt_control, N,
+            J, tau_c, b, tau_d,
+            max_torque, max_torque_rate,
+            Q, R, Rd, max_iter);
+        ctl->start();   // 自动启动后台 100Hz 发送线程
+        return static_cast<McuMpcHandle_C>(ctl);
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+void mcu_mpc_destroy(McuMpcHandle_C handle) {
+    delete static_cast<McuMpcController*>(handle);   // 析构内 stop + join
+}
+
+void mcu_mpc_step(McuMpcHandle_C handle,
+                  uint8_t auto_aim_enable, uint8_t yaw_torque_only_mode,
+                  double target_yaw, float pitch_target_angle, uint8_t fire) {
+    if (!handle) return;
+    static_cast<McuMpcController*>(handle)->set(
+        auto_aim_enable != 0, yaw_torque_only_mode != 0, target_yaw,
+        pitch_target_angle, fire != 0);
+}
+
+McuMpcState_C mcu_mpc_get_state(McuMpcHandle_C handle) {
+    McuMpcState_C out{};
+    if (!handle) return out;
+    auto s = static_cast<McuMpcController*>(handle)->state();
+    out.yaw_target_angle    = s.yaw_target_angle;
+    out.yaw_target_velocity = s.yaw_target_velocity;
+    out.yaw_torque          = s.yaw_torque;
+    out.delayed_target      = s.delayed_target;
+    return out;
 }
 
 } // extern "C"

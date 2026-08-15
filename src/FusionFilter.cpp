@@ -130,6 +130,21 @@ YawChassisFusion::Output YawChassisFusion::output() const {
     return out_;
 }
 
+// 重新锚定 imu_yaw_unwrapped 到与 yaw_pos 夹角最近的圈内（|差| ≤ π）。
+// 同时把 bias_ 调整相同的整圈量，保持 chassis_yaw 输出连续。
+void YawChassisFusion::reanchorImuYaw() {
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (!have_yaw_angle_) return;   // 尚无 yaw_pos 绝对基准
+
+    double new_val = yaw_pos_ + std::remainder(imu_yaw_unwrapped_ - yaw_pos_, 2.0 * M_PI);
+    double delta = new_val - imu_yaw_unwrapped_;   // 整圈数（2π 的整数倍）
+    if (delta == 0.0) return;
+
+    imu_yaw_unwrapped_ = new_val;
+    imu_yaw_corr_ = imu_yaw_unwrapped_ - last_euler_yaw_;   // 保持后续解卷绕一致
+    bias_ += delta;   // chassis_yaw = imu_yaw_unw − yaw_pos − bias 保持不变
+}
+
 // ============================================================================
 // 高频路径（每个 IMU 包，~1kHz，本地时钟积分）
 // ============================================================================

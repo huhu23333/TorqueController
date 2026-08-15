@@ -1,0 +1,80 @@
+#ifndef MCU_MPC_CONTROLLER_H
+#define MCU_MPC_CONTROLLER_H
+
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include "Communications.hpp"
+#include "yaw_mpc_controller.h"
+
+// ============================================================================
+// McuMpcController — 实车 MCU 控制封装（yaw MPC + 发送参数维护 + 后台发送线程）
+//
+// - set(auto_aim_enable, yaw_torque_only_mode, target_yaw, pitch_target_angle,
+//      fire): 一次性设置全部发送参数与 mpc 目标。除 target_yaw 传给
+//      YawMpcController 外，其余参数由本类自己维护（后台线程读取使用）。
+//      target_yaw 在设置时自动转换到与 imu_yaw_unwrapped 角度差最小的等效角
+//      （|差| ≤ π，且与 target_yaw 同向：target_adj ≡ target_yaw (mod 2π)）。
+// - 后台线程固定 100Hz：从本类取最新 target_yaw 调用 YawMpcController::step，
+//   以 mpc 结果配合最新设置的发送参数构造 McuSendPacket 发送给 MCU。
+// - 线程循环：开始处取 steady_clock::now()，结束处
+//   sleep_until(start + 10ms)，不严格跟随绝对时间点，避免误差累计。
+// - 设置参数与最新结果（last_state_）使用独立的锁保护。
+// ============================================================================
+class McuMpcController {
+public:
+    // 最新 mpc 求解结果（供显示/日志）
+    struct State {
+        double yaw_target_angle = 0.0;
+        double yaw_target_velocity = 0.0;
+        double yaw_torque = 0.0;
+        double delayed_target = 0.0;
+    };
+
+    McuMpcController(RobotCommunication* comm, double dt_control, int N,
+                     double J, double tau_c, double b, double tau_d,
+                     double max_torque, double max_torque_rate,
+                     double Q, double R, double Rd, int max_iter);
+    ~McuMpcController();
+
+    void start();   // 启动后台 100Hz 发送线程（可重复调用，幂等）
+    void stop();    // 停止并 join
+
+    // 设置发送参数 + mpc 目标（线程安全）。
+    // target_yaw 自动转换到与 imu_yaw_unwrapped 同一圈内的值。
+    void set(bool auto_aim_enable, bool yaw_torque_only_mode, double target_yaw,
+             double pitch_target_angle, bool fire);
+
+    // 最新 mpc 结果（线程安全，显示用）
+    State state() const;
+
+private:
+    void loop();
+
+    // 失配检测：连续 100 次循环（1s @100Hz）yaw_pos 与 imu_yaw_unwrapped
+    // 相差超过两圈 → 调用 reanchorImuYaw 重新锚定解卷绕基准
+    static constexpr int    MISMATCH_REANCHOR_COUNT = 100;
+    static constexpr double MISMATCH_TWO_TURNS = 4.0 * 3.14159265358979323846;   // 2 圈
+
+    RobotCommunication* comm_;
+    YawMpcController mpc_;
+
+    // 设置参数锁（后台线程读取）
+    mutable std::mutex set_mtx_;
+    bool   auto_aim_enable_ = true;
+    bool   yaw_torque_only_mode_ = false;
+    double target_yaw_ = 0.0;
+    double pitch_target_angle_ = 0.0;
+    bool   fire_ = false;
+
+    // 最新结果锁（显示线程读取）
+    mutable std::mutex state_mtx_;
+    State  last_state_;
+
+    int mismatch_count_ = 0;      // 连续失配计数（仅后台线程访问）
+
+    std::thread thread_;
+    std::atomic<bool> running_{false};
+};
+
+#endif // MCU_MPC_CONTROLLER_H

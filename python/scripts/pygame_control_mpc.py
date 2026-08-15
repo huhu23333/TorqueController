@@ -1,52 +1,53 @@
 """
-pygame_control_mpc.py — 使用 MPC 控制 yaw 的 pygame 演示程序
+pygame_control_mpc.py — 使用 pygame 鼠标控制 yaw（MPC）/ pitch 的实车控制程序
+                   结构仿照 pygame_control.py（同时获取和绘制 yaw 与 pitch）
 
-- 目标输入/可视化仿照 test3.py（鼠标目标 + 0.1s 目标延迟 + 箭头与曲线）
-- 观测: MCU 的 yaw_angle（位置，rad，多圈连续）和 yaw_omega（速度，rad/s）
-- 控制: MPC 求解第一步控制力矩 + 预测位置 + 预测速度，
-        通过 yaw_torque_only_mode=0 一并发送给 MCU
-- 模型参数取自 params/1/Identified_parameters.txt（tau_d=0）
+- yaw: MPC 力矩控制（闭环完全在 C++：McuMpcController 后台 100Hz 线程求解并发送）。
+       目标 yaw 可选用 TrajectoryPlanner + StepRefinementWrapper 平滑（USE_PLANNER）；
+       目标延迟 dt*N 步由 C++ 内部维护（delayed_target）。
+       目标 yaw 速度 = mpc 解算的 yaw_target_velocity；Torque = mpc 的 yaw_torque。
+- pitch: 鼠标竖向控制目标，限定 [-10°, +20°]，经 mcu_mpc.set 设置发送参数。
+- 观测: 融合滤波器输出（yaw_pos/yaw_rate/imu_yaw_unwrapped）+ MCU（pitch/temp）
 - 时间控制: time.perf_counter_ns() + 忙等待，每帧对齐到 start + frame*DT_S
-            （与 collect_sysid_data.py 一致），不再依赖 pygame 的 clock.tick
-- 参考轨迹: 传入 mpc.step 的长度为 N（ref[i] 对应预测 theta_pred[i+1]），
-            恒定取延迟目标；位置误差直接相减不归一化
-- 角度语义: yaw_angle 与目标均为多圈连续角度（非 wrap 到 [-π,π]），
-            MPC 内部全程按多圈处理
 
 运行:
-    实控模式:
-        PYTHONPATH=python python3 python/scripts/pygame_control_mpc.py
-    仿真模式 (--sim，使用与 MPC 相同参数的内部动力学环境，不连接硬件):
-        PYTHONPATH=python python3 python/scripts/pygame_control_mpc.py --sim
+    PYTHONPATH=python python3 python/scripts/pygame_control_mpc.py
 """
 
 import sys, os, math, time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from torque_controller import RobotCommunication, McuSendPacket
-from torque_controller.mpc_wrapper import MPCController
-from torque_controller.sim_yaw_env import SimYawEnv
+from torque_controller import RobotCommunication
+from scripts.trajectory_planner import TrajectoryPlanner, StepRefinementWrapper
 
 import pygame
 from pygame.locals import *
 from collections import deque
 
-# ================== 窗口与区域参数 (与 test3.py 相同) ==================
-ORIGIN_WIDTH, ORIGIN_HEIGHT = 1600, 1200
-CURVE_WIDTH = 800
-WIDTH = ORIGIN_WIDTH + CURVE_WIDTH
-HEIGHT = ORIGIN_HEIGHT
-CENTER_X = ORIGIN_WIDTH // 2
-CENTER_Y = HEIGHT // 2
-B = 300
-ARROW_LEN = 500
-CURVE_RECT = pygame.Rect(ORIGIN_WIDTH, 0, CURVE_WIDTH, HEIGHT)
-
-# ================== 控制参数 ==================
-DT_CTRL = 0.01           # MPC 控制周期 (100 Hz，与 MCU 通信周期一致)
+# ============================================================================
+# 配置（与 pygame_control.py 一致）
+# ============================================================================
+WINDOW_W, WINDOW_H = 1920, 1080
+DT_CTRL = 0.01          # MPC 控制周期 (100 Hz，与后台发送线程一致)
 DT_S = DT_CTRL
-DT_MPC_SIM = 0.01       # MPC 仿真步长（控制周期的）
-DELAY_TIME = 0.2         # 目标延迟时间 (秒)
-YAW_SENS = 0.003         # 鼠标每像素 -> yaw rad
+FPS = 100
+
+LINE_LEN = 200
+CIRCLE_R = 10
+CIRCLE_Y = 200
+PITCH_MIN_DEG = -10.0
+PITCH_MAX_DEG =  20.0
+YAW_SENS   =  0.003     # 鼠标水平每像素 → yaw rad
+PITCH_SENS =  0.003     # 鼠标竖向每像素 → pitch rad
+
+# yaw 目标平滑（可选：与 pygame_control.py 相同的 TrajectoryPlanner）
+USE_PLANNER = True
+MAX_VEL   = 30.0        # rad/s
+MAX_ACCEL = 50.0        # rad/s²
+MAX_JERK  = 2000.0      # rad/s³
+REFINE_N  = 1000
+
+# 目标延迟（C++ 内部维护，延迟 dt*N 步）
+DELAY_TIME = 0.2        # 秒
 MPC_PRED_N = int(DELAY_TIME / DT_CTRL)
 
 # ================== 辨识参数 (params/1/Identified_parameters.txt) ==================
@@ -59,11 +60,30 @@ TAU_D   = 0.0            # tau_d 设为 0
 MAX_TORQUE      = 1.0    # 最大力矩 (N·m)
 MAX_TORQUE_RATE = 40.0   # 最大力矩变化率 (N·m/s)
 
+# ================== 波形图参数（与 pygame_control.py 一致）==================
+WAVE_LEFT   = 80
+WAVE_RIGHT  = 1840
+WAVE_WIDTH  = WAVE_RIGHT - WAVE_LEFT
+HISTORY_S   = 3.0
+HISTORY_N   = int(HISTORY_S * FPS)
+
+RED    = (255, 60, 60)
+BLUE   = (60, 120, 255)
+WHITE  = (240, 240, 240)
+BLACK  = (20, 20, 20)
+GRAY   = (80, 80, 80)
+DGRAY  = (40, 40, 40)
+GREEN  = (100, 200, 100)
+YELLOW = (220, 220, 60)
+ORANGE = (255, 160, 40)
+LGRAY  = (65, 65, 65)
+
 TWO_PI = 2.0 * math.pi
 
-
-def wrap_angle(a):
-    return math.atan2(math.sin(a), math.cos(a))
+# 绝对模式控制框（与 pygame_control.py 一致）
+BOX_W, BOX_H = 900, 120
+BOX_X = (WINDOW_W - BOX_W) // 2
+BOX_Y = 460
 
 
 def busy_wait_until(target_s):
@@ -72,259 +92,206 @@ def busy_wait_until(target_s):
         pass
 
 
-# ================== 曲线绘图器类（三面板波形：Angle / Velocity / Torque，仿 trajectory_viz.py）==================
-class CurvePlotter:
-    COLORS = {
-        "actual": (0, 200, 0),        # 绿色
-        "target": (200, 50, 50),      # 红色
-        "error":  (240, 220, 60),     # 黄色
-        "ctrl":   (60, 160, 255),     # 蓝色（控制量）
-        "omega":  (255, 160, 40),     # 橙色（实际速度）
-        "torque": (255, 120, 200),    # 品红（力矩）
-    }
+# ============================================================================
+# 滚动波形缓冲区（复制自 pygame_control.py）
+# ============================================================================
+class RingBuffer:
+    def __init__(self, capacity, fill=0.0):
+        self._buf = deque([float(fill)] * capacity, maxlen=capacity)
 
-    def __init__(self, screen, rect, dt, init_time_range=5.0, init_angle_range=3.14):
-        self.screen = screen
-        self.rect = rect
-        self.dt = dt
-        self.time_range = init_time_range
-        self.angle_range = init_angle_range
+    def push(self, value):
+        self._buf.append(float(value))
 
-        max_len = int(init_time_range / dt) + 100
-        self.angles     = deque(maxlen=max_len)
-        self.targets    = deque(maxlen=max_len)
-        self.errors     = deque(maxlen=max_len)
-        self.omega_ctrl = deque(maxlen=max_len)   # 控制速度（MPC 预测第一步，发送值）
-        self.omega_act  = deque(maxlen=max_len)   # 实际速度（MCU 编码器 / 仿真）
-        self.torque     = deque(maxlen=max_len)   # 控制力矩（MPC 输出）
-        self.font = pygame.font.SysFont("Consolas", 16)
+    def data(self):
+        return list(self._buf)
 
-    def add_point(self, angle_wrapped, target_angle, omega_ctrl, omega_act, torque):
-        error = target_angle - angle_wrapped
-        error = (error + math.pi) % (2 * math.pi) - math.pi
-        self.angles.append(angle_wrapped)
-        self.targets.append(target_angle)
-        self.errors.append(error)
-        self.omega_ctrl.append(omega_ctrl)
-        self.omega_act.append(omega_act)
-        self.torque.append(torque)
-
-        needed_len = int(self.time_range / self.dt) + 10
-        if self.angles.maxlen < needed_len:
-            self._resize_buffers(needed_len)
-
-    def _resize_buffers(self, new_len):
-        for name in ("angles", "targets", "errors", "omega_ctrl", "omega_act", "torque"):
-            setattr(self, name, deque(getattr(self, name), maxlen=new_len))
-
-    def modify_time_range(self, delta):
-        new_range = self.time_range + delta
-        if 0.5 <= new_range <= 20.0:
-            self.time_range = new_range
-            self._resize_buffers(int(self.time_range / self.dt) + 10)
-
-    def modify_angle_range(self, delta):
-        new_range = self.angle_range + delta
-        if 0.2 <= new_range <= math.pi:
-            self.angle_range = new_range
-
-    def draw(self):
-        # 垂直三面板布局
-        margin, gap, help_h = 4, 3, 24
-        avail = self.rect.height - help_h
-        panel_h = (avail - margin * 2 - gap * 2) // 3
-        panels = []
-        y = self.rect.top + margin
-        for _ in range(3):
-            panels.append(pygame.Rect(self.rect.left + margin, y,
-                                      self.rect.width - margin * 2, panel_h))
-            y += panel_h + gap
-
-        # 角度面板（Y 范围可调，[ / ] 键）
-        self._draw_panel(panels[0], "Angle", [
-            (self.COLORS["actual"], "Actual", self.angles),
-            (self.COLORS["target"], "Target", self.targets),
-            (self.COLORS["error"],  "Error",  self.errors),
-        ], "rad", fixed_range=(-self.angle_range, self.angle_range))
-
-        # 速度面板（Y 范围自动缩放）：Ctrl = MPC 预测第一步速度，Actual = 实测速度
-        self._draw_panel(panels[1], "Velocity", [
-            (self.COLORS["ctrl"],  "Ctrl",   self.omega_ctrl),
-            (self.COLORS["omega"], "Actual", self.omega_act),
-        ], "rad/s", fixed_range=None)
-
-        # 力矩面板（Y 范围固定 ±1.2，MAX_TORQUE=1.0）
-        self._draw_panel(panels[2], "Torque", [
-            (self.COLORS["torque"], "Ctrl", self.torque),
-        ], "N\u00b7m", fixed_range=(-1.2, 1.2))
-
-        # 底部帮助
-        help_text = self.font.render(
-            f"TimeRange:{self.time_range:.1f}s  AngleRange:{self.angle_range:.1f}rad   "
-            f"Keys: +/- :Time  [ / ] :Angle  ESC : quit", True, (150, 150, 150))
-        self.screen.blit(help_text, (self.rect.left + 8, self.rect.bottom - help_h + 5))
-
-    def _draw_panel(self, rect, title, series, y_label, fixed_range=None):
-        """绘制单个波形面板：标题/单位/图例 + 网格 + 各序列折线"""
-        pygame.draw.rect(self.screen, (30, 30, 40), rect)
-        pygame.draw.rect(self.screen, (100, 100, 120), rect, 2)
-
-        # 标题（左上）与单位
-        t = self.font.render(title, True, (220, 220, 220))
-        self.screen.blit(t, (rect.left + 6, rect.top + 4))
-        u = self.font.render(y_label, True, (150, 150, 150))
-        self.screen.blit(u, (rect.left + 6 + t.get_width() + 8, rect.top + 4))
-
-        # 图例（右上）
-        ly = rect.top + 4
-        for color, name, _ in series:
-            pygame.draw.rect(self.screen, color, (rect.right - 76, ly + 4, 10, 10))
-            lab = self.font.render(name, True, (220, 220, 220))
-            self.screen.blit(lab, (rect.right - 62, ly))
-            ly += 16
-
-        plot_rect = rect.inflate(-28, -36)
-        plot_rect.y += 18
-        if plot_rect.width <= 8 or plot_rect.height <= 8:
-            return
-
-        # Y 范围：固定或自动（所有序列 min/max + 10% 边距）
-        if fixed_range is not None:
-            y_min, y_max = fixed_range
-        else:
-            vals = [v for _, _, dq in series for v in dq]
-            if not vals:
-                return
-            y_min, y_max = min(vals), max(vals)
-            if y_max - y_min < 1e-9:
-                y_min -= 1.0
-                y_max += 1.0
-            mg = (y_max - y_min) * 0.1
-            y_min -= mg
-            y_max += mg
-
-        # 水平网格 + Y 刻度
-        for i in range(6):
-            yr = i / 5
-            gy = plot_rect.bottom - yr * plot_rect.height
-            pygame.draw.line(self.screen, (60, 60, 70),
-                             (plot_rect.left, gy), (plot_rect.right, gy), 1)
-            val = y_min + yr * (y_max - y_min)
-            lab = self.font.render(f"{val:.1f}", True, (180, 180, 200))
-            self.screen.blit(lab, (plot_rect.left - lab.get_width() - 4, gy - 7))
-
-        # 竖直时间网格 + 时间刻度
-        for i in range(7):
-            xr = i / 6
-            gx = plot_rect.left + xr * plot_rect.width
-            pygame.draw.line(self.screen, (60, 60, 70),
-                             (gx, plot_rect.top), (gx, plot_rect.bottom), 1)
-            if i % 2 == 0:
-                tv = self.time_range * (1 - xr)
-                lab = self.font.render(f"{tv:.1f}s", True, (180, 180, 200))
-                self.screen.blit(lab, (gx - 12, plot_rect.bottom + 2))
-
-        # 序列折线
-        n_points = int(self.time_range / self.dt)
-        for color, _name, dq in series:
-            data = list(dq)[-n_points:]
-            if len(data) < 2:
-                continue
-            pts = []
-            for idx, val in enumerate(data):
-                fx = idx / (len(data) - 1)
-                fy = (val - y_min) / max(y_max - y_min, 1e-9)
-                fy = max(0.0, min(1.0, fy))
-                pts.append((int(plot_rect.left + fx * plot_rect.width),
-                            int(plot_rect.bottom - fy * plot_rect.height)))
-            pygame.draw.lines(self.screen, color, False, pts, 2)
+    def min_max(self):
+        d = self._buf
+        if not d:
+            return 0.0, 1.0
+        mn = min(d)
+        mx = max(d)
+        if mx - mn < 1e-9:
+            return mn - 0.5, mx + 0.5
+        margin = (mx - mn) * 0.1
+        return mn - margin, mx + margin
 
 
-# ================== 左侧绘图函数 (显示延迟后的目标) ==================
-def draw_original(screen, font, angle, delayed_target, total_time, tau, omega, already_exceeded_time, temperature):
-    line_y = CENTER_Y - B
-    pygame.draw.line(screen, (180, 180, 180), (0, line_y), (ORIGIN_WIDTH, line_y), 1)
-
-    # 当前角度箭头 (绿色)
-    end_x = CENTER_X - ARROW_LEN * math.sin(angle)
-    end_y = CENTER_Y - ARROW_LEN * math.cos(angle)
-    pygame.draw.line(screen, (0, 255, 0), (CENTER_X, CENTER_Y), (end_x, end_y), 3)
-    head_len = 12
-    head_angle = math.pi / 7
-    ang1 = angle + math.pi - head_angle
-    ang2 = angle + math.pi + head_angle
-    p1 = (end_x - head_len * math.sin(ang1), end_y - head_len * math.cos(ang1))
-    p2 = (end_x - head_len * math.sin(ang2), end_y - head_len * math.cos(ang2))
-    pygame.draw.polygon(screen, (0, 255, 0), [p1, (end_x, end_y), p2])
-
-    # 目标方向指示点 (红色) - 使用延迟目标
-    target_x = CENTER_X - ARROW_LEN * math.sin(delayed_target)
-    target_y = CENTER_Y - ARROW_LEN * math.cos(delayed_target)
-    pygame.draw.circle(screen, (255, 60, 60), (int(target_x), int(target_y)), 6)
-
-    time_surf = font.render(f"Time: {total_time:.4f} s, Exceeded: {already_exceeded_time} s", True, (255, 255, 255))
-    angle_surf = font.render(f"Angle: {angle:.3f}  Target: {delayed_target:.3f}", True, (255, 255, 255))
-    tau_surf = font.render(f"Torque: {tau:+.3f}  Omega: {omega:+.3f} rad/s", True, (255, 255, 255))
-    extra_surf = font.render(f"temperature: {temperature}°C", True, (255, 255, 255))
-    screen.blit(time_surf, (10, 10))
-    screen.blit(angle_surf, (10, 50))
-    screen.blit(tau_surf, (10, 90))
-    screen.blit(extra_surf, (10, 130))
-
-
-# ================== 主函数 ==================
-def main():
-    sim_mode = "--sim" in sys.argv
-
-    pygame.init()
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Yaw Control with MPC" + (" [SIM]" if sim_mode else " (real MCU)"))
-    font = pygame.font.Font(None, 30)
-
-    if sim_mode:
-        # 仿真模式：使用与 MPC 相同参数的内部动力学环境，不连接硬件
-        print("SIMULATION MODE — 使用内部动力学模型 (J={}, tau_c={}, b={})".format(J, TAU_C, B_FRIC))
-        env = SimYawEnv(J, TAU_C, B_FRIC, TAU_D, dt_sim=DT_MPC_SIM)
-        theta, omega = env.state
-        robot = None
+# ============================================================================
+# 绘图（复制自 pygame_control.py）
+# ============================================================================
+def draw_angle_view(surf, cx, cy, target_angle, current_angle, title, scale=1.0, rotate_ccw90=False):
+    """以 (cx,cy) 为圆心画两条射线表示目标和当前角度"""
+    t_ang = target_angle * scale
+    c_ang = current_angle * scale
+    if rotate_ccw90:
+        ex = cx - LINE_LEN * math.sin(t_ang)
+        ey = cy - LINE_LEN * math.cos(t_ang)
     else:
-        # 实控模式：连接 MCU 串口，使用融合滤波器输出（高频 yaw + 底盘姿态）
-        robot = RobotCommunication()
-        print("Waiting for fused data (IMU + MCU yaw)...")
-        while True:
-            fused = robot.get_fused_data()
-            if fused.valid:
-                break
-            time.sleep(0.01)
-        print("Fused data ready. Starting MPC control loop.")
-        # 当前状态（融合解卷绕位置 + 高频速度，多圈连续）
-        theta = fused.yaw_pos
-        omega = fused.yaw_rate
+        ex = cx + LINE_LEN * math.cos(t_ang)
+        ey = cy - LINE_LEN * math.sin(t_ang)
+    pygame.draw.line(surf, RED, (cx, cy), (int(ex), int(ey)), 3)
+    if rotate_ccw90:
+        ex = cx - LINE_LEN * math.sin(c_ang)
+        ey = cy - LINE_LEN * math.cos(c_ang)
+    else:
+        ex = cx + LINE_LEN * math.cos(c_ang)
+        ey = cy - LINE_LEN * math.sin(c_ang)
+    pygame.draw.line(surf, BLUE, (cx, cy), (int(ex), int(ey)), 3)
+    pygame.draw.circle(surf, WHITE, (cx, cy), CIRCLE_R)
+    font = pygame.font.SysFont(None, 22)
+    s = font.render(title, True, WHITE)
+    surf.blit(s, (cx - s.get_width() // 2, cy + LINE_LEN + 10))
 
-    # MPC 控制器（辨识参数，tau_d=0）
-    mpc = MPCController(
-        dt_control=DT_CTRL,
-        dt_sim=DT_MPC_SIM,
+
+def draw_info(surf, fused, data, target_yaw, target_pitch, mpc_state, fps, mode):
+    font = pygame.font.SysFont(None, 20)
+    y = 5
+    def t(txt):
+        nonlocal y
+        s = font.render(txt, True, WHITE)
+        surf.blit(s, (5, y)); y += 22
+
+    mcu = data.mcu_packet
+    mode_names = {0: "RELATIVE (click lock)", 1: "ABSOLUTE (box)"}
+    t(f"FPS: {fps:.0f}  |  Mode: {mode_names.get(mode, '?')}  |  [TAB:switch ESC:quit R:reset]")
+    t(f"Target  Yaw: {target_yaw:7.3f} rad  |  Pitch: {target_pitch:.3f} rad")
+    t(f"MPC     Yaw target_angle: {mpc_state.yaw_target_angle:7.3f}  velocity: {mpc_state.yaw_target_velocity:+.3f}  torque: {mpc_state.yaw_torque:+.4f}")
+    t(f"Fused   Yaw pos: {fused.yaw_pos:7.3f}  rate: {fused.yaw_rate:+.3f}  imu_yaw: {fused.imu_yaw_unwrapped:7.3f}")
+    t(f"Fused   chassis: yaw={fused.chassis_yaw:.3f} pitch={fused.chassis_pitch:.3f} roll={fused.chassis_roll:.3f}")
+    t(f"MCU Pitch: {mcu.pitch_angle:.3f}  |  Temp: {mcu.yaw_temperature}\u00b0C  |  fused_valid: {fused.valid}")
+
+
+def draw_control_box(surf, mx, my):
+    """绘制绝对模式控制框和十字准星（复制自 pygame_control.py）"""
+    r = pygame.Rect(BOX_X, BOX_Y, BOX_W, BOX_H)
+    pygame.draw.rect(surf, GRAY, r, 1)
+    cx = BOX_X + BOX_W // 2; cy = BOX_Y + BOX_H // 2
+    pygame.draw.line(surf, DGRAY, (BOX_X, cy), (BOX_X + BOX_W, cy), 1)
+    pygame.draw.line(surf, DGRAY, (cx, BOX_Y), (cx, BOX_Y + BOX_H), 1)
+    font = pygame.font.SysFont(None, 18)
+    s = font.render("yaw: L=+pi  R=-pi", True, GRAY)
+    surf.blit(s, (BOX_X, BOX_Y - 18))
+    s = font.render("pitch: up=+  down=-", True, GRAY)
+    surf.blit(s, (BOX_X + BOX_W - s.get_width(), BOX_Y + BOX_H + 2))
+    cx_clamp = max(BOX_X, min(BOX_X + BOX_W, mx))
+    cy_clamp = max(BOX_Y, min(BOX_Y + BOX_H, my))
+    pygame.draw.line(surf, YELLOW, (cx_clamp - 10, cy_clamp), (cx_clamp + 10, cy_clamp), 2)
+    pygame.draw.line(surf, YELLOW, (cx_clamp, cy_clamp - 10), (cx_clamp, cy_clamp + 10), 2)
+
+
+def draw_waveform(surf, x, y, w, h, title, buf, y_label,
+                  line_color, y_min=None, y_max=None, extra_traces=None):
+    """滚动波形图，支持多条曲线叠加"""
+    rect = pygame.Rect(x, y, w, h)
+    pygame.draw.rect(surf, DGRAY, rect, 1)
+    pygame.draw.rect(surf, BLACK, rect.inflate(-2, -2))
+
+    font = pygame.font.SysFont(None, 16)
+    s = font.render(title, True, WHITE)
+    surf.blit(s, (x + 4, y + 2))
+
+    legend_x = x + s.get_width() + 10
+    traces = [(buf, line_color)] + (extra_traces or [])
+    for _, c in traces:
+        pygame.draw.rect(surf, c, (legend_x, y + 5, 10, 10))
+        legend_x += 14
+    s = font.render(y_label, True, GRAY)
+    surf.blit(s, (x + w - s.get_width() - 4, y + 2))
+
+    if y_min is not None and y_max is not None:
+        y_min, y_max = float(y_min), float(y_max)
+    else:
+        all_data = []
+        for b, _ in traces:
+            all_data.extend(b.data())
+        if len(all_data) < 2:
+            return
+        y_min, y_max = min(all_data), max(all_data)
+        if y_max - y_min < 1e-9:
+            y_min -= 0.5; y_max += 0.5
+        else:
+            m = (y_max - y_min) * 0.1
+            y_min -= m; y_max += m
+
+    for frac in [0.0, 0.25, 0.5, 0.75, 1.0]:
+        gy = int(y + h - 4 - frac * (h - 28))
+        pygame.draw.line(surf, LGRAY, (x + 2, gy), (x + w - 2, gy), 1)
+        val = y_min + frac * (y_max - y_min)
+        sv = font.render(f"{val:.1f}", True, GRAY)
+        surf.blit(sv, (x + w - sv.get_width() - 4, gy - sv.get_height()))
+
+    for b, c in traces:
+        data = b.data()
+        n = len(data)
+        if n < 2:
+            continue
+        points = []
+        for i, val in enumerate(data):
+            frac_x = i / max(n - 1, 1)
+            frac_y = (val - y_min) / max(y_max - y_min, 1e-9)
+            px = int(x + 6 + frac_x * (w - 14))
+            py = int(y + h - 8 - frac_y * (h - 32))
+            points.append((px, py))
+        if len(points) >= 2:
+            pygame.draw.lines(surf, c, False, points, 2)
+
+
+# ============================================================================
+# 主函数
+# ============================================================================
+def main():
+    pygame.init()
+    screen = pygame.display.set_mode((WINDOW_W, WINDOW_H))
+    pygame.display.set_caption("Yaw (MPC) / Pitch Mouse Control")
+    font = pygame.font.Font(None, 26)
+
+    # 通信 + 融合滤波器
+    robot = RobotCommunication()
+    print("Waiting for fused data (IMU + MCU yaw)...")
+    while True:
+        fused = robot.get_fused_data()
+        if fused.valid:
+            break
+        time.sleep(0.01)
+    print("Fused data ready. Starting control loop.")
+
+    # 实车 MCU 控制封装（C++ 后台 100Hz：参考序列 + MPC 求解 + 发送）
+    mcu_mpc = robot.create_mcu_mpc(
+        dt_control=DT_CTRL, N=MPC_PRED_N,
         J=J, tau_c=TAU_C, b=B_FRIC, tau_d=TAU_D,
         max_torque=MAX_TORQUE, max_torque_rate=MAX_TORQUE_RATE,
-        N=MPC_PRED_N, Q=5.0, R=0.01, Rd=0.1, max_iter=30,
+        Q=5.0, R=0.01, Rd=0.1, max_iter=30,
     )
 
-    curve_plotter = CurvePlotter(screen, CURVE_RECT, DT_CTRL,
-                                 init_time_range=5.0, init_angle_range=3.14)
+    # 可选：yaw 目标平滑（与 pygame_control.py 相同）
+    planner = None
+    yaw_pos_p, yaw_vel_p, yaw_acc_p = 0.0, 0.0, 0.0
+    if USE_PLANNER:
+        planner = TrajectoryPlanner(max_velocity=MAX_VEL, max_acceleration=MAX_ACCEL, max_jerk=MAX_JERK)
+        planner = StepRefinementWrapper(planner.step, REFINE_N)
+        yaw_pos_p = fused.yaw_pos
 
-    # 目标（相对当前 yaw，连续多圈）
-    target_yaw = theta
-    # 目标延迟队列: (时间戳, 目标)
-    target_buffer = deque()
-    delayed_target = theta
+    # 目标（相对当前 yaw，连续多圈；延迟与参考序列由 C++ 内部维护）
+    target_yaw = fused.yaw_pos
+    target_pitch = 0.0
+    pitch_min = math.radians(PITCH_MIN_DEG)
+    pitch_max = math.radians(PITCH_MAX_DEG)
 
-    total_time = 0.0
-    tau = 0.0
+    # 波形历史缓冲区
+    mpc_state = mcu_mpc.get_state()
+    hist_delayed_target = RingBuffer(HISTORY_N, fused.imu_yaw_unwrapped)
+    hist_cur_yaw        = RingBuffer(HISTORY_N, fused.imu_yaw_unwrapped)
+    hist_vel_sent       = RingBuffer(HISTORY_N, 0.0)
+    hist_omega          = RingBuffer(HISTORY_N, 0.0)
+    hist_torque         = RingBuffer(HISTORY_N, 0.0)
+
+    VEL_Y_RANGE   = (-MAX_VEL * 1.2, MAX_VEL * 1.2)
+    TORQUE_Y_RANGE = (-2.0, 2.0)
+
     running = True
-    grabbed = False
-
-    # ── 忙等待时间基准：每帧对齐到 start + frame*DT_S（与 collect_sysid_data.py 一致）──
+    mode = 0                     # 0=相对(点击锁定持续捕获)  1=绝对(框)
+    total_time = 0.0
     loop_start_s = time.perf_counter_ns() * 1e-9
     already_exceeded_time = 0.0
     frame = 0
@@ -337,104 +304,124 @@ def main():
             busy_wait_until(delay_target_s)
         else:
             already_exceeded_time = time.perf_counter_ns() * 1e-9 - (loop_start_s + frame * DT_S)
-        # 用理论流逝时间作为 total_time
 
-        # ----- 事件处理 -----
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+        mx, my = pygame.mouse.get_pos()
+
+        # ── 事件处理（与 pygame_control.py 一致：点击锁定持续捕获，TAB 切换模式）──
+        for evt in pygame.event.get():
+            if evt.type == QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+            elif evt.type == KEYDOWN:
+                if evt.key == K_ESCAPE:
                     running = False
-                elif event.key == pygame.K_EQUALS or event.key == pygame.K_PLUS:
-                    curve_plotter.modify_time_range(0.5)
-                elif event.key == pygame.K_MINUS:
-                    curve_plotter.modify_time_range(-0.5)
-                elif event.key == pygame.K_LEFTBRACKET:
-                    curve_plotter.modify_angle_range(-0.2)
-                elif event.key == pygame.K_RIGHTBRACKET:
-                    curve_plotter.modify_angle_range(0.2)
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                # 鼠标在左侧区域按下 -> 锁定鼠标进行相对控制
-                if 0 <= event.pos[0] < ORIGIN_WIDTH:
-                    grabbed = True
-                    pygame.mouse.set_visible(False)
-                    pygame.event.set_grab(True)
-            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                grabbed = False
-                pygame.mouse.set_visible(True)
-                pygame.event.set_grab(False)
+                elif evt.key == K_TAB:
+                    if mode == 0:
+                        mode = 1
+                        pygame.mouse.set_visible(True)
+                        pygame.event.set_grab(False)
+                    else:
+                        mode = 0
+                elif evt.key == K_r:
+                    target_yaw = fused.yaw_pos if fused.valid else target_yaw
+                    target_pitch = 0.0
+            elif evt.type == MOUSEBUTTONDOWN and mode == 0:
+                # 点击锁定鼠标，之后持续捕获相对移动（无需按住）
+                pygame.mouse.set_visible(False)
+                pygame.event.set_grab(True)
 
-        # ----- 鼠标相对运动更新目标 -----
-        if grabbed:
-            dx, _ = pygame.mouse.get_rel()
-            target_yaw -= dx * YAW_SENS
-
-        # ----- 读取状态（仿真=环境推进, 实控=融合滤波器输出）-----
-        if sim_mode:
-            # 应用上一步 MPC 输出的力矩，推进一个控制周期
-            theta, omega = env.step(tau, DT_CTRL)
-            temperature = 0
+        # ── 目标角度（与 pygame_control.py 一致）──
+        if mode == 0:
+            if pygame.event.get_grab():
+                dx, dy = pygame.mouse.get_rel()
+                target_yaw   -= float(dx) * YAW_SENS
+                target_pitch -= float(dy) * PITCH_SENS
         else:
-            fused = robot.get_fused_data()
-            if fused.valid:
-                theta = fused.yaw_pos          # 解卷绕多圈位置
-                omega = fused.yaw_rate         # 高频速度
-                theta_imu = fused.imu_yaw_unwrapped
-            data = robot.get_latest_data()     # 仅用于温度显示
-            temperature = data.mcu_packet.yaw_temperature
-            if data.mcu_valid:
-                chassis_imu_omega = data.mcu_packet.chassis_imu_omega
+            fx = (mx - BOX_X) / BOX_W
+            fy = (my - BOX_Y) / BOX_H
+            fx = max(0.0, min(1.0, fx))
+            fy = max(0.0, min(1.0, fy))
+            target_yaw   = (1.0 - fx) * TWO_PI - math.pi
+            target_pitch = (1.0 - fy) * (pitch_max - pitch_min) + pitch_min
 
-        # ----- 目标延迟缓冲 -----
-        target_buffer.append((total_time, target_yaw))
-        delayed_target = target_buffer[0][1]
-        while len(target_buffer) > mpc.N:
-            target_buffer.popleft()
+        # pitch 限位
+        if target_pitch > pitch_max: target_pitch = pitch_max
+        if target_pitch < pitch_min: target_pitch = pitch_min
 
-        # ----- MPC 求解（参考轨迹：长度 N，恒定取延迟目标，多圈不归一化）-----
-        ref = []
-        if sim_mode:
-            for i in range(len(target_buffer)):
-                ref.append(target_buffer[i][1])
+        # ── 读取融合状态 ──
+        fused = robot.get_fused_data()
+        theta_imu = fused.imu_yaw_unwrapped if fused.valid else 0.0
+        omega     = fused.yaw_rate if fused.valid else 0.0
+
+        # ── 可选：yaw 目标平滑（TrajectoryPlanner）──
+        if planner is not None:
+            yaw_pos_p, yaw_vel_p, yaw_acc_p, _ = planner.step(
+                target_yaw, yaw_pos_p, yaw_vel_p, yaw_acc_p, DT_CTRL)
+            mpc_target_yaw = yaw_pos_p
         else:
-            for i in range(len(target_buffer)):
-                ref.append(target_buffer[i][1] - ((theta_imu - theta) + (i+1) * DT_CTRL * chassis_imu_omega))
-        if len(ref) < MPC_PRED_N:
-            ref = ref + [ref[-1]] * (MPC_PRED_N - len(ref))
+            mpc_target_yaw = target_yaw
 
-        tau, theta_pred, omega_pred = mpc.step(theta, omega, ref)
+        # ── 设置发送参数 + mpc 目标（后台线程 100Hz 求解并发送）──
+        mcu_mpc.set(auto_aim_enable=1, yaw_torque_only_mode=0,
+                    target_yaw=mpc_target_yaw, pitch_target_angle=target_pitch,
+                    fire=0)
 
-        # ----- 发送给 MCU：力矩 + 位置 + 速度（yaw_torque_only_mode=0）-----
-        if not sim_mode:
-            pkt = McuSendPacket(
-                auto_aim_enable=1,
-                pitch_target_angle=0.0,
-                yaw_torque_only_mode=0,
-                yaw_target_angle=theta_pred,
-                yaw_target_velocity=omega_pred,
-                yaw_torque=tau,
-                fire=0,
-            )
-            robot.send_to_mcu(pkt)
+        # ── 最新 mpc 结果（后台线程更新）──
+        mpc_state = mcu_mpc.get_state()
 
-        # ----- 曲线数据（wrap 到 [-π, π] 用于显示）-----
-        theta_wrapped = wrap_angle(theta_imu if not sim_mode else theta)
-        curve_plotter.add_point(theta_wrapped, wrap_angle(delayed_target),
-                                omega_pred, omega, tau)
+        # ── MCU 数据（pitch / temp）──
+        data = robot.get_latest_data()
+        cur_pitch = data.mcu_packet.pitch_angle if data.mcu_valid else 0.0
 
-        # ----- 渲染 -----
-        screen.fill((20, 20, 20))
-        draw_original(screen, font, theta_imu if not sim_mode else theta, delayed_target, total_time, tau, omega, already_exceeded_time, temperature)
-        curve_plotter.draw()
+        # ── 波形历史（目标角度 = 延迟后的输入目标；目标速度 = mpc 解算值）──
+        hist_delayed_target.push(mpc_state.delayed_target)
+        hist_cur_yaw.push(theta_imu)
+        hist_vel_sent.push(mpc_state.yaw_target_velocity)
+        hist_omega.push(omega)
+        hist_torque.push(mpc_state.yaw_torque)
+
+        # ── 绘制 ──
+        screen.fill(BLACK)
+        mid = WINDOW_W // 2
+        draw_angle_view(screen, mid // 2, CIRCLE_Y,
+                        mpc_state.delayed_target, theta_imu,
+                        "Yaw  (R=delayed target / B=current IMU)",
+                        rotate_ccw90=True)
+        draw_angle_view(screen, mid + mid // 2, CIRCLE_Y,
+                        target_pitch, cur_pitch,
+                        "Pitch  (R=target / B=current MCU)")
+
+        if mode == 1:
+            draw_control_box(screen, mx, my)
+
+        draw_info(screen, fused, data, target_yaw, target_pitch, mpc_state,
+                  int(1.0 / DT_CTRL) if total_time > 0.5 else 0, mode)
+
+        wave_start_y = 620
+        pygame.draw.line(screen, DGRAY, (0, wave_start_y), (WINDOW_W, wave_start_y), 2)
+
+        wave_h = 135
+        wave_gap = 12
+        y0 = wave_start_y + 6
+        draw_waveform(screen, WAVE_LEFT, y0, WAVE_WIDTH, wave_h,
+                      "Angle (delayed target + current)", hist_delayed_target, "rad",
+                      RED, extra_traces=[(hist_cur_yaw, BLUE)])
+        y0 += wave_h + wave_gap
+        draw_waveform(screen, WAVE_LEFT, y0, WAVE_WIDTH, wave_h,
+                      "Angular Velocity (mpc target + actual)", hist_vel_sent, "rad/s",
+                      GREEN, *VEL_Y_RANGE, extra_traces=[(hist_omega, ORANGE)])
+        y0 += wave_h + wave_gap
+        draw_waveform(screen, WAVE_LEFT, y0, WAVE_WIDTH, wave_h,
+                      "Torque (mpc)", hist_torque, "N\u00b7m",
+                      YELLOW, *TORQUE_Y_RANGE)
+
         pygame.display.flip()
 
     # 清理
+    if pygame.event.get_grab():
+        pygame.event.set_grab(False)
     pygame.mouse.set_visible(True)
-    pygame.event.set_grab(False)
-    if robot is not None:
-        robot.stop()
-        robot.close()
+    robot.stop()
+    robot.close()
     pygame.quit()
     sys.exit()
 
