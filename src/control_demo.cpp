@@ -1,160 +1,104 @@
-// control_demo.cpp
-// 控制演示程序 (原 yaw_control)
-// - 目标角度：来自 IMU 的 euler_yaw（观测值与目标值相等，显式赋值）
-// - 观测角度：来自 IMU 的 euler_yaw（imu::ReceivePacket）
-// - Pitch 目标：来自 IMU 的 euler_pitch
-// - PID 输出 yaw_torque → 通过 mcu::SendPacket 发送给电控
+// control_demo.cpp — 使用 RobotController 封装类的正弦目标演示程序
+//
+// - 参数与 pygame_control_mpc.py 一致
+// - 以 3s 周期正弦控制 target_yaw（±30°）与 pitch_target_angle（-10°~+20°），
+//   两者相位差 90°
+// - 内部：RobotController 建立通信 + 融合 + yaw MPC + 后台 100Hz 发送线程，
+//   外部只需 set() 设置目标即可
+// - 运行: ./build/control_demo，Ctrl+C 退出
+#include "RobotController.h"
 
-#include "Communications.hpp"
-#include <iostream>
-#include <iomanip>
 #include <cmath>
-#include <thread>
-#include <atomic>
-#include <csignal>
+#include <cstdio>
 #include <chrono>
+#include <thread>
+#include <csignal>
+#include <atomic>
 
 namespace {
 
-// ============================================================================
-// 简易 PID 控制器
-// ============================================================================
-class PidController {
-public:
-    PidController(float kp, float ki, float kd, float output_min, float output_max)
-        : kp_(kp), ki_(ki), kd_(kd)
-        , output_min_(output_min), output_max_(output_max)
-    {}
+std::atomic<bool> g_running{true};
+void signalHandler(int) { g_running = false; }
 
-    float update(float error, float dt) {
-        float derivative = (dt > 1e-6f) ? (error - prev_error_) / dt : 0.0f;
-        prev_error_ = error;
+constexpr double DEG2RAD = M_PI / 180.0;
+constexpr double PERIOD_S = 3.0;              // 正弦周期（秒）
+constexpr double OMEGA = 2.0 * M_PI / PERIOD_S;
 
-        // 先算 PD 分量，再加积分项预估是否越界
-        float output = kp_ * error + ki_ * integral_ + kd_ * derivative;
-        bool  sat_hi = (output > output_max_);
-        bool  sat_lo = (output < output_min_);
+// ── 参数（与 pygame_control_mpc.py 一致）──
+constexpr double DT_CTRL = 0.01;              // 控制周期 (100 Hz)
+constexpr int    MPC_PRED_N = 20;             // int(DELAY_TIME / DT_CTRL)，DELAY_TIME=0.2s
+constexpr double J      = 0.016541;
+constexpr double TAU_C  = 0.097297;
+constexpr double B_FRIC = 0.032100;
+constexpr double TAU_D  = 0.0;
+constexpr double MAX_TORQUE      = 1.0;
+constexpr double MAX_TORQUE_RATE = 40.0;
+constexpr double Q = 5.0;
+constexpr double R = 0.01;
+constexpr double Rd = 0.1;
+constexpr int    MAX_ITER = 30;
 
-        if (sat_hi) output = output_max_;
-        if (sat_lo) output = output_min_;
-
-        // 条件积分：仅在未饱和 或 误差方向利于退出饱和时累加
-        bool do_integrate = true;
-        if (sat_hi && error > 0.0f) do_integrate = false;  // 饱和上界且误差继续推高 → 抑制
-        if (sat_lo && error < 0.0f) do_integrate = false;  // 饱和下界且误差继续压低 → 抑制
-        if (do_integrate) integral_ += error * dt;
-
-        return output;
-    }
-
-    void reset() { integral_ = 0.0f; prev_error_ = 0.0f; }
-    void setGains(float kp, float ki, float kd) { kp_ = kp; ki_ = ki; kd_ = kd; }
-
-private:
-    float kp_, ki_, kd_;
-    float output_min_, output_max_;
-    float integral_   = 0.0f;
-    float prev_error_ = 0.0f;
-};
-
-// ============================================================================
-// 全局变量
-// ============================================================================
-std::atomic<bool> keep_running{true};
-
-const double TWO_PI = 2.0 * M_PI;
-double normalizeAngle(double angle) {
-    return std::remainder(angle, TWO_PI);
+// ── 正弦目标 ──
+// target_yaw: ±30° 正弦
+inline double targetYaw(double t) {
+    return 30.0 * DEG2RAD * std::sin(OMEGA * t);
 }
 
-void signalHandler(int) {
-    keep_running = false;
+// pitch_target_angle: 范围 -10°~+20°（中点 5°、幅值 15°），与 yaw 相位差 90°
+inline double targetPitch(double t) {
+    return (5.0 + 15.0 * std::sin(OMEGA * t - M_PI / 2.0)) * DEG2RAD;
 }
 
 } // namespace
 
 int main() {
-    signal(SIGINT,  signalHandler);
-    signal(SIGTERM, signalHandler);
+    std::signal(SIGINT, signalHandler);
+    std::signal(SIGTERM, signalHandler);
 
-    std::cout << "========================================" << std::endl;
-    std::cout << "  控制演示程序 (control_demo)" << std::endl;
-    std::cout << "  目标: IMU euler_yaw (与观测值相等)" << std::endl;
-    std::cout << "  观测: IMU euler_yaw" << std::endl;
-    std::cout << "  Pitch目标: IMU euler_pitch" << std::endl;
-    std::cout << "========================================" << std::endl;
+    printf("=== control_demo (RobotController) ===\n");
+    printf("正弦周期 %.1fs: target_yaw ±30°, pitch_target -10°~+20°, 相位差 90°\n", PERIOD_S);
 
-    RobotCommunication robot_comm;
+    // 一体化控制封装：通信 + 融合滤波器 + yaw MPC + 后台 100Hz 发送线程
+    RobotController rc(DT_CTRL, MPC_PRED_N,
+                       J, TAU_C, B_FRIC, TAU_D,
+                       MAX_TORQUE, MAX_TORQUE_RATE,
+                       Q, R, Rd, MAX_ITER);
 
-    std::cout << "IMU 和 MCU 通信已启动，等待数据..." << std::endl;
-
-    // PID: Kp=2.0 Ki=0.1 Kd=0.05, output [-1.0, 1.0]
-    PidController pid(2.0f, 0.1f, 0.2f, -1.0f, 1.0f);
-
-    // 等待直到 IMU 和 MCU 均有有效数据
-    while (keep_running) {
-        auto data = robot_comm.getLatestData();
-        if (data.imu_valid && data.mcu_valid) break;
+    // 等待融合数据就绪
+    printf("等待融合数据就绪...\n");
+    while (g_running) {
+        if (rc.getState().fused.valid) break;
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    if (keep_running) std::cout << "已收到 IMU 和 MCU 数据，开始控制循环。" << std::endl;
+    if (!g_running) return 0;
+    printf("融合就绪，开始正弦控制（Ctrl+C 退出）\n");
 
-    auto last_time = std::chrono::steady_clock::now();
-    int  loop_count = 0;
-    while (keep_running) {
-        auto now = std::chrono::steady_clock::now();
-        float dt = std::chrono::duration<float>(now - last_time).count();
-        last_time = now;
+    auto t0 = std::chrono::steady_clock::now();
+    int loop = 0;
+    while (g_running) {
+        auto start = std::chrono::steady_clock::now();
+        double t = std::chrono::duration<double>(start - t0).count();
 
-        // 统一获取最新 IMU 和 MCU 数据
-        auto data = robot_comm.getLatestData();
+        // 设置发送参数 + mpc 目标（后台线程 100Hz 求解并发送）
+        double yaw   = targetYaw(t);
+        double pitch = targetPitch(t);
+        rc.set(/*auto_aim_enable=*/true, /*yaw_torque_only_mode=*/false,
+               yaw, pitch, /*fire=*/false);
 
-        float target_yaw   = 0.0f;
-        float observed_yaw = 0.0f;
-        if (data.imu_valid) {
-            target_yaw   = static_cast<float>(data.imu_packet.euler_yaw);
-            observed_yaw = static_cast<float>(data.imu_packet.euler_yaw);
+        // 每 0.1s 打印一次
+        if (++loop % 10 == 0) {
+            auto st = rc.getState();
+            printf("[t=%6.2fs] target_yaw=%+7.2f° pitch=%+6.2f° | "
+                   "yaw_pos=%+.3f yaw_rate=%+.3f torque=%+.4f | fused=%d | temperature=%d\n",
+                   t, yaw / DEG2RAD, pitch / DEG2RAD,
+                   st.fused.yaw_pos, st.fused.yaw_rate, st.mpc.yaw_torque,
+                   (int)st.fused.valid, st.mcu.yaw_temperature);
         }
 
-        float yaw_torque = 0.0f;
-        if (data.imu_valid) {
-            float error = normalizeAngle(target_yaw - observed_yaw);
-            yaw_torque = pid.update(error, dt);
-        }
-
-        // 构造发送包并发送（预处理在 sendToMcu 内部完成）
-        mcu::SendPacket pkt;
-        pkt.auto_aim_enable    = 1;
-        pkt.fire               = 0;
-        pkt.pitch_target_angle = data.imu_valid ? static_cast<float>(data.imu_packet.euler_pitch) : 0.0f;
-        pkt.yaw_torque_only_mode = 1;
-        pkt.yaw_target_angle   = 0.0;
-        pkt.yaw_target_velocity = 0.0f;
-        pkt.yaw_torque         = yaw_torque;
-        robot_comm.sendToMcu(pkt);
-
-        // 每 100 次循环打印一次状态
-        if (++loop_count % 100 == 0) {
-            float err = 0.0f;
-            if (data.imu_valid)
-                err = normalizeAngle(target_yaw - observed_yaw);
-            std::cout << std::fixed << std::setprecision(3)
-                      << "[Loop " << loop_count << "] "
-                      << "target=" << target_yaw
-                      << " observed=" << observed_yaw
-                      << " error=" << err
-                      << " torque=" << yaw_torque
-                      << " pitch_target=" << pkt.pitch_target_angle
-                      << " (IMU:" << (data.imu_valid ? "Y" : "N") << ")"
-                      << std::endl;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        // 循环结束处等待到 start + 10ms（100Hz），不累计误差
+        std::this_thread::sleep_until(start + std::chrono::milliseconds(10));
     }
 
-    std::cout << "\n程序退出。" << std::endl;
-
-    robot_comm.stop();
-
+    printf("\n退出。\n");
     return 0;
 }

@@ -1,11 +1,12 @@
 #ifndef MCU_MPC_CONTROLLER_H
 #define MCU_MPC_CONTROLLER_H
 
+#include <vector>
 #include <thread>
 #include <atomic>
 #include <mutex>
-#include "Communications.hpp"
-#include "yaw_mpc_controller.h"
+#include "communication/Communications.hpp"
+#include "mpc/yaw_mpc_controller.h"
 
 // ============================================================================
 // McuMpcController — 实车 MCU 控制封装（yaw MPC + 发送参数维护 + 后台发送线程）
@@ -29,6 +30,8 @@ public:
         double yaw_target_velocity = 0.0;
         double yaw_torque = 0.0;
         double delayed_target = 0.0;
+        std::vector<double> ref_sequence;   // 本次参考（目标）序列（N 个）
+        std::vector<double> pred_sequence;  // 本次预测位置序列（N 个）
     };
 
     McuMpcController(RobotCommunication* comm, double dt_control, int N,

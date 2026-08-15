@@ -1,9 +1,9 @@
 // RobotCommunicationC.cpp — C API 实现，通过 memcpy 在 C/C++ 类型间转换
 
-#include "RobotCommunicationC.h"
-#include "Communications.hpp"
-#include "yaw_mpc_controller.h"
-#include "mcu_mpc_controller.h"
+#include "c_api/RobotCommunicationC.h"
+#include "communication/Communications.hpp"
+#include "mpc/yaw_mpc_controller.h"
+#include "mpc/mcu_mpc_controller.h"
 #include <cstring>
 #include <new>
 

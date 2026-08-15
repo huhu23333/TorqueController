@@ -1,5 +1,5 @@
 // test_serial.cpp
-#include "Communications.hpp"
+#include "communication/Communications.hpp"
 #include <iostream>
 #include <thread>
 #include <csignal>

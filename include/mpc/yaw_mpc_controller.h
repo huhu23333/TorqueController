@@ -3,8 +3,8 @@
 
 #include <deque>
 #include <vector>
-#include "Communications.hpp"
-#include "mpc_controller.h"
+#include "communication/Communications.hpp"
+#include "mpc/mpc_controller.h"
 
 // ============================================================================
 // YawMpcController — 实车 yaw 轴 MPC 求解封装（参考序列 + 求解，不发送）
@@ -26,6 +26,8 @@ public:
         double yaw_target_velocity = 0.0; // 预测速度 → 发送 yaw_target_velocity (rad/s)
         double yaw_torque = 0.0;          // 控制力矩 → 发送 yaw_torque (N·m)
         double delayed_target = 0.0;      // 当前参考（延迟 N 步的目标），供显示
+        std::vector<double> ref_sequence;   // 本次参考（目标）序列（N 个）
+        std::vector<double> pred_sequence;  // 本次预测位置序列（N 个，不含当前）
     };
 
     // dt_control: 控制周期（MPC 的 dt_control 与 dt_sim 相同）

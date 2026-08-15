@@ -11,28 +11,20 @@ if(NOT UDEV_LIBRARY)
     message(FATAL_ERROR "libudev not found")
 endif()
 
-# 通信库源文件（CRC 为核心，模板类为 header-only）
+# ============================================================================
+# 通信库（src/communication + include/communication）
+# ============================================================================
 set(COMMUNICATION_SOURCES
-    src/CRC.cpp
-    src/McuDataPreprocessor.cpp
-    src/FusionFilter.cpp
-)
-
-# 通信库头文件
-set(COMMUNICATION_HEADERS
-    include/CRC.h
-    include/SerialProtocol.hpp
-    include/Protocol.hpp
-    include/Communications.hpp
-    include/McuDataPreprocessor.h
-    include/FusionFilter.h
+    src/communication/CRC.cpp
+    src/communication/McuDataPreprocessor.cpp
+    src/communication/FusionFilter.cpp
 )
 
 # 构建通信库
 add_library(communication STATIC ${COMMUNICATION_SOURCES})
 target_include_directories(communication PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/communication
 )
 target_link_libraries(communication PUBLIC ${UDEV_LIBRARY})
 
@@ -44,24 +36,35 @@ target_link_libraries(test_serial PRIVATE communication)
 add_executable(pitch_calibration src/pitch_calibration.cpp)
 target_link_libraries(pitch_calibration PRIVATE communication)
 
-# 构建 C API 动态库（供 Python ctypes 加载；含实车 MPC 控制闭环）
+# ============================================================================
+# MPC（src/mpc + include/mpc）
+# ============================================================================
+set(MPC_SOURCES
+    src/mpc/mpc_controller.cpp
+    src/mpc/yaw_mpc_controller.cpp
+    src/mpc/mcu_mpc_controller.cpp
+)
+
+# ============================================================================
+# C API + 一体化封装动态库（c_api/ + src/RobotController.cpp；供 Python 与外部 cpp）
+# ============================================================================
 find_package(Ceres REQUIRED)
 
 add_library(robot_comm_c SHARED
-    src/RobotCommunicationC.cpp
+    src/c_api/RobotCommunicationC.cpp
     ${COMMUNICATION_SOURCES}
-    mpc/mpc_controller.cpp
-    mpc/yaw_mpc_controller.cpp
-    mpc/mcu_mpc_controller.cpp
+    ${MPC_SOURCES}
+    src/RobotController.cpp
 )
 target_include_directories(robot_comm_c PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/mpc
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/communication
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/mpc
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/c_api
     ${CERES_INCLUDE_DIRS}
 )
 target_link_libraries(robot_comm_c PUBLIC ${UDEV_LIBRARY} ${CERES_LIBRARIES})
 
-# 构建控制演示程序
+# 构建控制演示程序（使用 RobotController 一体化封装）
 add_executable(control_demo src/control_demo.cpp)
-target_link_libraries(control_demo PRIVATE communication)
+target_link_libraries(control_demo PRIVATE robot_comm_c)

@@ -40,6 +40,8 @@ public:
     Result step(double theta, double omega, const std::vector<double>& theta_ref);
 
     // ── 供 CostFunctor 调用（模板：double 运行时 / ceres::Jet 自动求导）──
+    // 输出 N 个预测点：theta_pred[k] / omega_pred[k] 为施加 u[0..k] 后
+    // （k+1 个控制周期后）的状态，不含初始状态 theta0
     template <typename T>
     void predictTrajectory(const T& theta0, const T& omega0,
                            const std::vector<T>& u_seq,
@@ -47,12 +49,10 @@ public:
                            std::vector<T>& omega_pred) const {
         theta_pred.clear();
         omega_pred.clear();
-        theta_pred.reserve(N_ + 1);
-        omega_pred.reserve(N_ + 1);
+        theta_pred.reserve(N_);
+        omega_pred.reserve(N_);
 
         T theta = theta0, omega = omega0;
-        theta_pred.push_back(theta);
-        omega_pred.push_back(omega);
         for (int k = 0; k < N_; ++k) {
             T tau = u_seq[k];
             for (int step = 0; step < steps_per_control_; ++step) {
@@ -74,6 +74,10 @@ public:
     double rateStep()   const { return rate_step_; }
     double prevTorque() const { return prev_torque_; }
 
+    // 最新一次 step 的参考（目标）序列（N 个）与预测位置序列（N 个，不含当前状态）
+    const std::vector<double>& lastRef()  const { return last_ref_; }
+    const std::vector<double>& lastPred() const { return last_pred_; }
+
 private:
     double dt_control_, dt_sim_;
     int    steps_per_control_;
@@ -88,6 +92,10 @@ private:
     std::vector<double> prev_u_seq_;
     // 上一次实际施加的力矩（用于第一步力矩变化率硬约束）
     double prev_torque_ = 0.0;
+
+    // 最新一次 step 的参考序列与预测位置序列（供上层查询）
+    std::vector<double> last_ref_;
+    std::vector<double> last_pred_;
 
     // 摩擦力矩（软符号 tanh；tanh 依赖 ADL：double → ::tanh，Jet → ceres::tanh）
     template <typename T>

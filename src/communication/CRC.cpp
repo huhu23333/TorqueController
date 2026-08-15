@@ -1,5 +1,5 @@
 // CRC.cpp
-#include "CRC.h"
+#include "communication/CRC.h"
 
 // CRC8查表法表格定义
 const uint8_t CRC8_TAB[256] = {

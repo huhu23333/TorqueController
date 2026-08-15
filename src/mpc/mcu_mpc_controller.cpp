@@ -1,4 +1,4 @@
-#include "mcu_mpc_controller.h"
+#include "mpc/mcu_mpc_controller.h"
 
 #include <chrono>
 #include <cmath>
@@ -95,6 +95,8 @@ void McuMpcController::loop() {
             last_state_.yaw_target_velocity = res.yaw_target_velocity;
             last_state_.yaw_torque          = res.yaw_torque;
             last_state_.delayed_target      = res.delayed_target;
+            last_state_.ref_sequence        = res.ref_sequence;
+            last_state_.pred_sequence       = res.pred_sequence;
         }
 
         // 循环结束处：等待到 start + 10ms（100Hz），不严格跟随绝对时间点

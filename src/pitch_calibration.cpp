@@ -11,7 +11,7 @@
 // 拟合，得到的斜率和截距更能代表系统的真实线性特性，避免端点异常值
 // 拉偏回归结果。
 
-#include "Communications.hpp"
+#include "communication/Communications.hpp"
 #include <iostream>
 #include <iomanip>
 #include <vector>

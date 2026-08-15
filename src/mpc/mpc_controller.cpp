@@ -1,4 +1,4 @@
-#include "mpc_controller.h"
+#include "mpc/mpc_controller.h"
 
 #include <cmath>
 #include <algorithm>
@@ -35,9 +35,9 @@ public:
 
         int idx = 0;
         // 位置跟踪误差：直接相减，不归一化（多圈连续语义，
-        // ref[i] 对应预测 theta_pred[i+1]，i = 0..N-1）
+        // theta_pred[k] 为 k+1 个控制周期后的预测，ref[k] 对应参考）
         for (int k = 0; k < N; ++k) {
-            T err = theta_pred[k + 1] - theta_ref_[k];
+            T err = theta_pred[k] - theta_ref_[k];
             residuals[idx++] = std::sqrt(mpc_->Q()) * err;
         }
         // 控制量惩罚
@@ -146,6 +146,16 @@ MPCController::Result MPCController::step(double theta, double omega,
 
     prev_u_seq_ = u;
     prev_torque_ = u[0];
+
+    // 缓存本次参考序列与完整预测位置序列（供上层查询）
+    last_ref_ = ref_copy;
+    last_pred_.clear();
+    {
+        std::vector<double> theta_pred, omega_pred;
+        predictTrajectory(theta, omega, u, theta_pred, omega_pred);   // double 实例化
+        // predictTrajectory 输出 N 个预测点（不含当前），与 last_ref_ 一一对应
+        last_pred_ = theta_pred;
+    }
 
     // 第一步预测状态（应用 u[0] 一个控制周期）
     double th = theta, om = omega;

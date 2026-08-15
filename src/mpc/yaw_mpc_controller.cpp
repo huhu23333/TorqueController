@@ -1,4 +1,4 @@
-#include "yaw_mpc_controller.h"
+#include "mpc/yaw_mpc_controller.h"
 
 YawMpcController::YawMpcController(RobotCommunication* comm, double dt_control, int N,
                                    double J, double tau_c, double b, double tau_d,
@@ -44,11 +44,13 @@ YawMpcController::Result YawMpcController::step(double target_yaw) {
     }
     while (ref.size() < static_cast<size_t>(N_)) ref.push_back(ref.back());
 
-    // ---- 4. MPC 求解（返回发送所需值，不发送）----
+    // ---- 4. MPC 求解（返回发送所需值 + 参考/预测序列，不发送）----
     auto mres = mpc_.step(theta, omega, ref);
     r.yaw_target_angle    = mres.theta;
     r.yaw_target_velocity = mres.omega;
     r.yaw_torque          = mres.torque;
+    r.ref_sequence        = mpc_.lastRef();     // 本次参考（目标）序列（N 个）
+    r.pred_sequence       = mpc_.lastPred();    // 本次预测位置序列（N+1 个）
 
     return r;
 }

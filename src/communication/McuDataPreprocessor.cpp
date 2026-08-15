@@ -1,4 +1,4 @@
-#include "McuDataPreprocessor.h"
+#include "communication/McuDataPreprocessor.h"
 #include <cmath>
 
 mcu::SendPacket McuDataPreprocessor::processSend(const mcu::SendPacket& packet) {
