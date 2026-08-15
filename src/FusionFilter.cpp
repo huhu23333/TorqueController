@@ -208,6 +208,19 @@ void YawChassisFusion::onMcu(double yaw_angle, double yaw_omega, double pitch_an
     if (have_yaw_angle_ && std::fabs(yaw_angle - yaw_angle_last_) <= 1e-9) {
         return;   // 非新数据
     }
+
+    // 首次收到 MCU yaw_angle：
+    //   - imu_yaw_unwrapped 初始化到"与 yaw_angle 同一圈、角度为最近 IMU 的 yaw"
+    //     （此后解卷绕基准与 MCU 多圈基准一致，而非从 0 开始累积）
+    //   - yaw_pos 直接对齐到 yaw_angle（避免首次 bias 标定受未对齐积分值污染）
+    if (!have_yaw_angle_) {
+        double diff = std::remainder(last_euler_yaw_ - yaw_angle, 2.0 * M_PI);
+        imu_yaw_unwrapped_ = yaw_angle + diff;
+        imu_yaw_corr_ = imu_yaw_unwrapped_ - last_euler_yaw_;
+        yaw_pos_ = yaw_angle;
+        pos_init_from_mcu_ = true;
+    }
+
     yaw_angle_last_ = yaw_angle;
     yaw_omega_last_ = yaw_omega;   // 关节速度基准（MCU 直接测量，非差分）
     have_yaw_angle_ = true;
