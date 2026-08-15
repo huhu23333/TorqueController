@@ -74,22 +74,6 @@ void McuMpcController::loop() {
             fire  = fire_;
         }
 
-        // 失配检测：连续 100 次循环（1s @100Hz）yaw_pos 与 imu_yaw_unwrapped
-        // 相差超过两圈 → 重新锚定解卷绕基准（影响本次 mpc 求解的 theta_imu）
-        if (comm_) {
-            auto fused = comm_->getFused();
-            if (fused.valid) {
-                if (std::fabs(fused.yaw_pos - fused.imu_yaw_unwrapped) > MISMATCH_TWO_TURNS) {
-                    if (++mismatch_count_ >= MISMATCH_REANCHOR_COUNT) {
-                        comm_->reanchorImuYaw();
-                        mismatch_count_ = 0;
-                    }
-                } else {
-                    mismatch_count_ = 0;
-                }
-            }
-        }
-
         // mpc 求解（内部读融合状态）
         auto res = mpc_.step(target_yaw);
 

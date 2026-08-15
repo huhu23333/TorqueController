@@ -51,11 +51,6 @@ public:
 private:
     void loop();
 
-    // 失配检测：连续 100 次循环（1s @100Hz）yaw_pos 与 imu_yaw_unwrapped
-    // 相差超过两圈 → 调用 reanchorImuYaw 重新锚定解卷绕基准
-    static constexpr int    MISMATCH_REANCHOR_COUNT = 100;
-    static constexpr double MISMATCH_TWO_TURNS = 4.0 * 3.14159265358979323846;   // 2 圈
-
     RobotCommunication* comm_;
     YawMpcController mpc_;
 
@@ -70,8 +65,6 @@ private:
     // 最新结果锁（显示线程读取）
     mutable std::mutex state_mtx_;
     State  last_state_;
-
-    int mismatch_count_ = 0;      // 连续失配计数（仅后台线程访问）
 
     std::thread thread_;
     std::atomic<bool> running_{false};

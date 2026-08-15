@@ -40,7 +40,7 @@ YAW_SENS   =  0.003     # 鼠标水平每像素 → yaw rad
 PITCH_SENS =  0.003     # 鼠标竖向每像素 → pitch rad
 
 # yaw 目标平滑（可选：与 pygame_control.py 相同的 TrajectoryPlanner）
-USE_PLANNER = True
+USE_PLANNER = False
 MAX_VEL   = 30.0        # rad/s
 MAX_ACCEL = 50.0        # rad/s²
 MAX_JERK  = 2000.0      # rad/s³
