@@ -65,8 +65,12 @@ public:
     void onImu(double euler_yaw, double euler_pitch, double euler_roll,
                double gx, double gy, double gz);
 
-    // 低频路径：每个 MCU 包调用（yaw 字段值变化检测做位置校正）
-    void onMcu(double yaw_angle, double yaw_omega, double pitch_angle);
+    // 低频路径：每个 MCU 包调用（yaw 字段值变化检测做位置校正；
+    // chassis_imu_yaw/omega 为底盘 IMU 数据，水平假设下直接利用：
+    //   yaw_rate = gy·sin p + gz·cos p − chassis_imu_omega − gyro偏置
+    //   bias 修正用 chassis_imu_yaw（底盘 yaw 直接观测））
+    void onMcu(double yaw_angle, double yaw_omega, double pitch_angle,
+               double chassis_imu_yaw, double chassis_imu_omega);
 
     // 读取融合输出（线程安全：回调线程写、主线程读）
     Output output() const;
@@ -96,8 +100,9 @@ private:
     double yaw_pos_ = 0.0;            // yaw 关节位置（积分+校正，多圈）
     double yaw_rate_ = 0.0;
     double yaw_rate_proj_ = 0.0;      // gy·sin p + gz·cos p（投影，供静止判定/调试）
-    double diff_lp_ = 0.0;            // 低通(yaw_rate_proj − yaw_omega)（互补滤波项）
+    double diff_lp_ = 0.0;            // 低通(yaw_rate_proj − yaw_omega − chassis_imu_omega)（gyro 偏置）
     double yaw_omega_last_ = 0.0;     // 最近 MCU yaw_omega（直接测量，低频基准）
+    double chassis_imu_omega_ = 0.0;  // 最近 MCU chassis_imu_omega（底盘 yaw 角速度）
     double pitch_joint_ = 0.0;        // 最近 MCU pitch（实时）
     double chassis_pitch_ = 0.0;      // 反解底盘 pitch/roll（MCU 更新时刷新）
     double chassis_roll_ = 0.0;
@@ -107,6 +112,8 @@ private:
     double imu_yaw_corr_ = 0.0;       // imu yaw 解卷绕累计修正
     double chassis_yaw_unwrapped_ = 0.0;  // 反解底盘 yaw（解卷绕，供输出/差分基准）
     double chassis_yaw_corr_ = 0.0;   // 反解底盘 yaw 解卷绕累计修正
+    double chassis_imu_yaw_unw_ = 0.0;    // 底盘 IMU yaw（解卷绕，bias 修正观测）
+    double chassis_imu_yaw_corr_ = 0.0;   // 底盘 IMU yaw 解卷绕累计修正
 
     double yaw_angle_last_ = 0.0;     // 最近 MCU yaw_angle（多圈绝对）
     bool   have_yaw_angle_ = false;

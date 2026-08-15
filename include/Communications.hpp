@@ -145,7 +145,8 @@ private:
             has_mcu_data_      = true;
         }
         // 喂融合滤波器的数据同样为预处理后的（与 latest_mcu_packet_ 语义一致）
-        fusion_.onMcu(processed.yaw_angle, processed.yaw_omega, processed.pitch_angle);
+        fusion_.onMcu(processed.yaw_angle, processed.yaw_omega, processed.pitch_angle,
+                      processed.chassis_imu_yaw, processed.chassis_imu_omega);
     }
 
     // ── 成员变量 ──

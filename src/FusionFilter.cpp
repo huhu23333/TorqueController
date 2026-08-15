@@ -116,9 +116,12 @@ void YawChassisFusion::reset() {
     imu_yaw_corr_ = 0.0;
     chassis_yaw_unwrapped_ = 0.0;
     chassis_yaw_corr_ = 0.0;
+    chassis_imu_yaw_unw_ = 0.0;
+    chassis_imu_yaw_corr_ = 0.0;
     yaw_angle_last_ = 0.0;
     have_yaw_angle_ = false;
     pos_init_from_mcu_ = false;
+    chassis_imu_omega_ = 0.0;
     last_imu_t_ = -1.0;
     last_euler_yaw_ = 0.0;
     last_euler_pitch_ = 0.0;
@@ -173,16 +176,15 @@ void YawChassisFusion::onImu(double euler_yaw, double euler_pitch, double euler_
     // ---- 1. IMU euler yaw 解卷绕（多圈连续）----
     imu_yaw_unwrapped_ = unwrapTo(euler_yaw, imu_yaw_unwrapped_, imu_yaw_corr_);
 
-    // ---- 2. yaw 关节速度（互补滤波，无差分）----
+    // ---- 2. yaw 关节速度（互补滤波，无差分；显式利用底盘 IMU 角速度）----
     // yaw 关节轴在 IMU 本体系 = (0, sin p, cos p)（pitch 绕 x）；
-    // 投影 = yaw_rate + 底盘贡献 + gyro 偏置（物理和）。
-    // 用 MCU yaw_omega（直接测量的关节速度，低频）做基准，低通差分项
-    // 吸收 gyro 偏置与低频底盘贡献；高频瞬态保留 gyro 投影。
+    // 投影 = yaw_rate + chassis_imu_omega + gyro 偏置（水平假设下物理和）。
+    // 显式减去底盘 IMU 角速度（低频），低通差分项仅吸收 gyro 偏置。
     double sp = std::sin(pitch_joint_), cp = std::cos(pitch_joint_);
     yaw_rate_proj_ = gy * sp + gz * cp;
-    double inst_diff = yaw_rate_proj_ - yaw_omega_last_;
+    double inst_diff = yaw_rate_proj_ - yaw_omega_last_ - chassis_imu_omega_;
     diff_lp_ += diff_lp_alpha_eff_ * (inst_diff - diff_lp_);
-    yaw_rate_ = yaw_rate_proj_ - diff_lp_;
+    yaw_rate_ = yaw_rate_proj_ - chassis_imu_omega_ - diff_lp_;
 
     // ---- 3. 位置积分（多圈）+ 慢速位置校正 ----
     yaw_pos_ += yaw_rate_ * dt;
@@ -214,10 +216,12 @@ void YawChassisFusion::onImu(double euler_yaw, double euler_pitch, double euler_
 // ============================================================================
 // 低频路径（每个 MCU 包；yaw 字段低频更新 <10Hz，pitch 实时）
 // ============================================================================
-void YawChassisFusion::onMcu(double yaw_angle, double yaw_omega, double pitch_angle) {
+void YawChassisFusion::onMcu(double yaw_angle, double yaw_omega, double pitch_angle,
+                             double chassis_imu_yaw, double chassis_imu_omega) {
     std::lock_guard<std::mutex> lock(mtx_);
 
     pitch_joint_ = pitch_angle;   // pitch 近似实时
+    chassis_imu_omega_ = chassis_imu_omega;   // 底盘 yaw 角速度（低频，随包更新）
 
     // yaw 字段更新检测（重复包值完全相同）
     if (have_yaw_angle_ && std::fabs(yaw_angle - yaw_angle_last_) <= 1e-9) {
@@ -253,12 +257,17 @@ void YawChassisFusion::onMcu(double yaw_angle, double yaw_omega, double pitch_an
     chassis_pitch_ = pitch_c;
     chassis_roll_ = roll_c;
 
+    // ---- 底盘 IMU yaw 解卷绕（bias 修正的直接观测）----
+    // chassis_imu_yaw 为 0~2π 卷绕值，连续化后代表底盘 yaw
+    chassis_imu_yaw_unw_ = unwrapTo(chassis_imu_yaw, chassis_imu_yaw_unw_, chassis_imu_yaw_corr_);
+
     // ---- bias 持续修正 ----
-    // bias_target = imu_yaw_unw − yaw_pos − chassis_yaw_unw（反解无漂移），
-    // 向它慢速收敛以补偿 yaw_pos 的缓慢漂移；静止时快速、运动时缓慢。
+    // bias_target = imu_yaw_unw − yaw_pos − chassis_imu_yaw_unw
+    // （底盘 IMU 直接测量底盘 yaw，水平假设下无漂移；向它慢速收敛以
+    //   补偿 yaw_pos 的缓慢漂移；静止时快速、运动时缓慢）
     // （仅当 yaw_pos 已有基准时修正才有意义；首次直接全量标定）
     if (have_yaw_angle_) {
-        double bias_target = imu_yaw_unwrapped_ - yaw_pos_ - chassis_yaw_unw;
+        double bias_target = imu_yaw_unwrapped_ - yaw_pos_ - chassis_imu_yaw_unw_;
         bool still = (std::fabs(yaw_rate_proj_) < STILL_RATE) &&
                      (std::fabs(yaw_rate_) < STILL_RATE);
         double kb = !bias_init_ ? 1.0 : (still ? bias_kp_still_eff_ : bias_kp_moving_eff_);
