@@ -133,6 +133,39 @@ YawChassisFusion::Output YawChassisFusion::output() const {
     return out_;
 }
 
+// 严格反解数据包：读取时即时计算。所有角度 wrap 到 (-π, π]；
+// 所需数据缺失时内部状态为 0，以 0 参与计算（始终有效）；
+// imu 欧拉角恒为 imu 传来的数据（last_euler_* 由 onImu 缓存）。
+YawChassisFusion::StrictPose YawChassisFusion::strictPose() const {
+    std::lock_guard<std::mutex> lock(mtx_);
+    StrictPose sp;
+
+    // ── 反解输入（wrap 到 (-π, π]）──
+    double yi = std::remainder(last_euler_yaw_, 2.0 * M_PI);
+    double pi = std::remainder(last_euler_pitch_, 2.0 * M_PI);
+    double ri = std::remainder(last_euler_roll_, 2.0 * M_PI);
+    // yaw_pos 仅在 MCU yaw_angle 基准到位后有效（有绝对多圈基准）；
+    // MCU 数据缺失时视为缺失，用 0 参与计算（此时底盘欧拉角 = imu 欧拉角）
+    double yp = have_yaw_angle_ ? std::remainder(yaw_pos_, 2.0 * M_PI) : 0.0;
+    double pa = std::remainder(pitch_joint_, 2.0 * M_PI);
+    sp.imu_euler_yaw = yi;
+    sp.imu_euler_pitch = pi;
+    sp.imu_euler_roll = ri;
+    sp.yaw_pos = yp;
+    sp.pitch_angle = pa;
+
+    // ── 严格反解（wrap 不影响 sin/cos，结果等价）──
+    Mat3 R_head = eulerZXY(yi, pi, ri);
+    Mat3 R_chain = mul(rotZ(yp), rotX(pa));
+    Mat3 R_ch = mul(R_head, trans(R_chain));
+    double cy, cp_, cr;
+    matToEulerZXY(R_ch, cy, cp_, cr);
+    sp.chassis_yaw   = std::remainder(cy, 2.0 * M_PI);
+    sp.chassis_pitch = std::remainder(cp_, 2.0 * M_PI);
+    sp.chassis_roll  = std::remainder(cr, 2.0 * M_PI);
+    return sp;
+}
+
 // 重新锚定 imu_yaw_unwrapped 到与 yaw_pos 夹角最近的圈内（|差| ≤ π）。
 // 同时把 bias_ 调整相同的整圈量，保持 chassis_yaw 输出连续。
 void YawChassisFusion::reanchorImuYaw() {

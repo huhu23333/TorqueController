@@ -48,6 +48,23 @@
 
 class YawChassisFusion {
 public:
+    // 严格反解数据包（独立输出，非 Output 子结构）：
+    // 使用当前 IMU 欧拉角（始终为 imu 传来的数据，缺失时为 0）+ pitch_angle + yaw_pos
+    // 严格反解底盘欧拉角，保证 R_imu = R_chassis·Rz(yaw_pos)·Rx(pitch_angle) 恒成立。
+    // 包内所有角度均缠绕到 (-π, π]；数据始终有效，所需数据缺失时以 0 参与计算。
+    struct StrictPose {
+        // ── 反解输入快照（wrap 到 (-π, π]）──
+        double imu_euler_yaw = 0.0;
+        double imu_euler_pitch = 0.0;
+        double imu_euler_roll = 0.0;
+        double yaw_pos = 0.0;       // 反解所用的 yaw 关节位置（wrap 后）
+        double pitch_angle = 0.0;   // 反解所用的 pitch 关节角（wrap 后）
+        // ── 严格反解结果（wrap 到 (-π, π]）──
+        double chassis_yaw = 0.0;
+        double chassis_pitch = 0.0;
+        double chassis_roll = 0.0;
+    };
+
     struct Output {
         bool   valid = false;
         double yaw_pos = 0.0;            // yaw 关节解卷绕位置 (rad, 多圈)
@@ -74,6 +91,10 @@ public:
 
     // 读取融合输出（线程安全：回调线程写、主线程读）
     Output output() const;
+
+    // 读取严格反解数据包（线程安全；读取时基于当前状态即时计算，
+    // 始终有效，缺失数据以 0 参与，所有角度 wrap 到 (-π, π]）
+    StrictPose strictPose() const;
 
     // 重新锚定 imu_yaw_unwrapped：将其设到与 yaw_pos 夹角最近的圈内
     // （|差| ≤ π）。用于解卷绕错位（imu_yaw_unwrapped 与 yaw_pos 相差数圈）后的修复；

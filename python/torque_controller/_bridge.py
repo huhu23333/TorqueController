@@ -94,6 +94,21 @@ class RobotLatestData(Structure):
     ]
 
 
+class RobotStrictPose(Structure):
+    """严格反解数据包（独立输出）：所有角度 wrap 到 (-π,π]；始终有效，
+    缺失数据以 0 参与；R_imu = R_chassis·Rz(yaw_pos)·Rx(pitch_angle) 恒成立"""
+    _fields_ = [
+        ("imu_euler_yaw",    c_double),   # 反解输入：IMU 欧拉角（始终为 imu 传来数据）
+        ("imu_euler_pitch",  c_double),
+        ("imu_euler_roll",   c_double),
+        ("yaw_pos",          c_double),   # 反解输入：yaw 关节位置（wrap 后）
+        ("pitch_angle",      c_double),   # 反解输入：pitch 关节角（wrap 后）
+        ("chassis_yaw",      c_double),   # 严格反解底盘欧拉角（wrap 后）
+        ("chassis_pitch",    c_double),
+        ("chassis_roll",     c_double),
+    ]
+
+
 class RobotFusedData(Structure):
     """融合输出：高频 yaw 位置/速度 + 底盘 world 系姿态"""
     _fields_ = [
@@ -133,6 +148,8 @@ _lib.robot_comm_get_latest_data.argtypes   = [ctypes.c_void_p]
 _lib.robot_comm_get_latest_data.restype    = RobotLatestData
 _lib.robot_comm_get_fused_data.argtypes    = [ctypes.c_void_p]
 _lib.robot_comm_get_fused_data.restype     = RobotFusedData
+_lib.robot_comm_get_strict_pose.argtypes   = [ctypes.c_void_p]
+_lib.robot_comm_get_strict_pose.restype    = RobotStrictPose
 _lib.robot_comm_send_to_mcu.argtypes       = [ctypes.c_void_p, ctypes.POINTER(McuSendPacket)]
 _lib.robot_comm_send_to_mcu.restype        = c_bool
 _lib.robot_comm_send_to_imu.argtypes       = [ctypes.c_void_p, ctypes.POINTER(ImuSendPacket)]
@@ -240,6 +257,10 @@ class RobotCommunication:
 
     def get_fused_data(self) -> RobotFusedData:
         return _lib.robot_comm_get_fused_data(self._handle)
+
+    def get_strict_pose(self) -> RobotStrictPose:
+        """严格反解数据包（独立输出；始终有效，角度 wrap 到 (-π,π]）"""
+        return _lib.robot_comm_get_strict_pose(self._handle)
 
     def send_to_mcu(self, packet: McuSendPacket) -> bool:
         return _lib.robot_comm_send_to_mcu(self._handle, ctypes.byref(packet))

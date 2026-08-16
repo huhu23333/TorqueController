@@ -118,6 +118,24 @@ RobotFusedData_C robot_comm_get_fused_data(RobotCommHandle* handle) {
     return result;
 }
 
+RobotStrictPose_C robot_comm_get_strict_pose(RobotCommHandle* handle) {
+    RobotStrictPose_C result{};
+    if (!handle) return result;
+
+    auto sp = handle->impl.getStrictPose();
+
+    result.imu_euler_yaw    = sp.imu_euler_yaw;
+    result.imu_euler_pitch  = sp.imu_euler_pitch;
+    result.imu_euler_roll   = sp.imu_euler_roll;
+    result.yaw_pos          = sp.yaw_pos;
+    result.pitch_angle      = sp.pitch_angle;
+    result.chassis_yaw      = sp.chassis_yaw;
+    result.chassis_pitch    = sp.chassis_pitch;
+    result.chassis_roll     = sp.chassis_roll;
+
+    return result;
+}
+
 bool robot_comm_send_to_mcu(RobotCommHandle* handle, const McuSendPacket_C* packet) {
     if (!handle || !packet) return false;
 

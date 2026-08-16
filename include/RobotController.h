@@ -56,6 +56,18 @@ public:
         double imu_yaw_unwrapped = 0.0;
     };
 
+    // 严格反解数据包（独立输出，非 FusedData 子包）：
+    // 所有角度 wrap 到 (-π, π]；始终有效，缺失数据以 0 参与；
+    // 保证 R_imu = R_chassis·Rz(yaw_pos)·Rx(pitch_angle) 恒成立
+    struct StrictPose {
+        double imu_euler_yaw = 0.0, imu_euler_pitch = 0.0, imu_euler_roll = 0.0;
+        double yaw_pos = 0.0;       // 反解所用的 yaw_pos（wrap 后）
+        double pitch_angle = 0.0;   // 反解所用的 pitch_angle（wrap 后）
+        double chassis_yaw = 0.0;   // 严格反解结果（wrap 后）
+        double chassis_pitch = 0.0;
+        double chassis_roll = 0.0;
+    };
+
     // MPC 状态
     struct MpcData {
         double yaw_target_angle = 0.0;      // 最新预测位置
@@ -72,6 +84,7 @@ public:
         ImuData  imu;
         FusedData fused;
         MpcData  mpc;
+        StrictPose strict;   // 严格反解数据包（独立）
     };
 
     // 建立通信 + MPC 控制封装（dt_control 控制周期、N 预测步数、MPC 参数）

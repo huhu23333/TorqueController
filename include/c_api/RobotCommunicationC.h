@@ -108,6 +108,20 @@ typedef struct {
     double imu_yaw_unwrapped;    // IMU euler yaw 解卷绕 (rad)
 } RobotFusedData_C;
 
+// ── 严格反解数据包（独立输出）──
+// 所有角度 wrap 到 (-π, π]；始终有效，缺失数据以 0 参与；
+// 保证 R_imu = R_chassis·Rz(yaw_pos)·Rx(pitch_angle) 恒成立
+typedef struct {
+    double imu_euler_yaw;        // 反解输入：IMU 欧拉角（始终为 imu 传来数据）
+    double imu_euler_pitch;
+    double imu_euler_roll;
+    double yaw_pos;              // 反解输入：yaw 关节位置（wrap 后）
+    double pitch_angle;          // 反解输入：pitch 关节角（wrap 后）
+    double chassis_yaw;          // 严格反解底盘欧拉角（wrap 后）
+    double chassis_pitch;
+    double chassis_roll;
+} RobotStrictPose_C;
+
 // ── 不透明句柄 ──
 typedef struct RobotCommHandle RobotCommHandle;
 
@@ -126,6 +140,9 @@ RobotLatestData_C robot_comm_get_latest_data(RobotCommHandle* handle);
 
 // 获取融合输出（高频 yaw 位置/速度 + 底盘姿态）
 RobotFusedData_C robot_comm_get_fused_data(RobotCommHandle* handle);
+
+// 获取严格反解数据包（独立输出，始终有效）
+RobotStrictPose_C robot_comm_get_strict_pose(RobotCommHandle* handle);
 
 // 发送 MCU 数据（发送前做预处理）
 bool robot_comm_send_to_mcu(RobotCommHandle* handle, const McuSendPacket_C* packet);

@@ -124,6 +124,11 @@ public:
         fusion_.reanchorImuYaw();
     }
 
+    // 严格反解数据包（独立输出；始终有效，缺失数据以 0 参与，角度 wrap 到 (-π, π]）
+    YawChassisFusion::StrictPose getStrictPose() const {
+        return fusion_.strictPose();
+    }
+
 private:
     // ── 回调：存储原始数据 + 喂融合滤波器 ──
     void onImuReceive(const imu::ReceivePacket& packet) {

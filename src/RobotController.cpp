@@ -57,6 +57,17 @@ RobotController::State RobotController::getState() {
     st.fused.chassis_roll     = f.chassis_roll;
     st.fused.imu_yaw_unwrapped = f.imu_yaw_unwrapped;
 
+    // 严格反解数据包（独立输出）
+    auto sp = comm_.getStrictPose();
+    st.strict.imu_euler_yaw    = sp.imu_euler_yaw;
+    st.strict.imu_euler_pitch  = sp.imu_euler_pitch;
+    st.strict.imu_euler_roll   = sp.imu_euler_roll;
+    st.strict.yaw_pos          = sp.yaw_pos;
+    st.strict.pitch_angle      = sp.pitch_angle;
+    st.strict.chassis_yaw      = sp.chassis_yaw;
+    st.strict.chassis_pitch    = sp.chassis_pitch;
+    st.strict.chassis_roll     = sp.chassis_roll;
+
     // ── MPC 状态（含参考/预测序列）──
     auto m = mcu_mpc_.state();
     st.mpc.yaw_target_angle    = m.yaw_target_angle;
