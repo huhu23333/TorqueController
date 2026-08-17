@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <stdexcept>
 #include "communication/Communications.hpp"
 #include "mpc/mcu_mpc_controller.h"
 
@@ -87,21 +88,38 @@ public:
         StrictPose strict;   // 严格反解数据包（独立）
     };
 
-    // 建立通信 + MPC 控制封装（dt_control 控制周期、N 预测步数、MPC 参数）
+    // 控制模式：单目标（默认）/ 序列
+    // 构造时选定模式后，调用另一种模式的 set 接口会抛出 std::runtime_error
+    enum class Mode { SINGLE = 0, SEQUENCE = 1 };
+
+    // 建立通信 + MPC 控制封装（dt_control 控制周期、N 预测步数、MPC 参数；
+    // sequence_mode=true 选择序列模式）
     RobotController(double dt_control, int N,
                     double J, double tau_c, double b, double tau_d,
                     double max_torque, double max_torque_rate,
-                    double Q, double R, double Rd, int max_iter);
+                    double Q, double R, double Rd, int max_iter,
+                    bool sequence_mode = false);
     ~RobotController();
 
     // 统一获取：mcu/imu 原始 + 融合输出 + mpc 状态（含参考/预测序列）
     State getState();
 
-    // 直通 McuMpcController::set（后台 100Hz 线程求解并发送 MCU）
+    // 直通 McuMpcController::set（单目标模式；后台 100Hz 线程求解并发送 MCU）
+    // 序列模式下调用本接口抛出 std::runtime_error
     void set(bool auto_aim_enable, bool yaw_torque_only_mode, double target_yaw,
              double pitch_target_angle, bool fire);
 
+    // 序列模式 set（直通 McuMpcController 序列版 set）
+    // 单目标模式下调用本接口抛出 std::runtime_error
+    void set(bool auto_aim_enable, bool yaw_torque_only_mode,
+             const std::vector<double>& target_yaw_seq,
+             const std::vector<double>& pitch_seq,
+             const std::vector<bool>& fire_seq);
+
+    Mode mode() const { return sequence_mode_ ? Mode::SEQUENCE : Mode::SINGLE; }
+
 private:
+    bool sequence_mode_ = false;
     RobotCommunication comm_;
     McuMpcController   mcu_mpc_;
 };

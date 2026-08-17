@@ -37,10 +37,16 @@ public:
                      double max_torque, double max_torque_rate,
                      double Q, double R, double Rd, int max_iter);
 
-    // 每步调用：内部读状态、维护参考序列、求解；返回发送所需值（不发送）
+    // 每步调用：内部读状态、维护延迟参考序列、求解；返回发送所需值（不发送）
     Result step(double target_yaw);
 
+    // 整序列 step：直接用传入的目标缓冲序列替换内部 target_buf_
+    // （取前 N_ 个，不足用最后一个值填充到 N_ 个），后续处理与 step(target_yaw) 相同
+    Result step(const std::vector<double>& target_buf);
+
 private:
+    Result solve();   // 公共求解：读融合状态 + 参考序列 + MPC
+
     RobotCommunication* comm_;
     double dt_;
     int    N_;

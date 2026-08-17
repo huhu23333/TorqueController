@@ -5,6 +5,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <deque>
 #include "communication/Communications.hpp"
 #include "mpc/yaw_mpc_controller.h"
 
@@ -44,9 +45,18 @@ public:
     void stop();    // 停止并 join
 
     // 设置发送参数 + mpc 目标（线程安全）。
-    // target_yaw 自动转换到与 imu_yaw_unwrapped 同一圈内的值。
+    // target_yaw 自动转换到与 imu_yaw_unwrapped 角度差最小的等效角（与 target 同向）。
     void set(bool auto_aim_enable, bool yaw_torque_only_mode, double target_yaw,
              double pitch_target_angle, bool fire);
+
+    // 序列版 set：传入 target_yaw / pitch_target_angle / fire 三个序列
+    // （长度截断到最短者；target_yaw 序列：第一个值 remainder 到 imu_yaw ±π 内，
+    //  后续值 remainder 到前一个值 ±π 内）。存储到内部序列成员，
+    //  后台线程按序消费（优先于单目标 set）。调用单目标 set 会清空这些序列。
+    void set(bool auto_aim_enable, bool yaw_torque_only_mode,
+             const std::vector<double>& target_yaw_seq,
+             const std::vector<double>& pitch_seq,
+             const std::vector<bool>& fire_seq);
 
     // 最新 mpc 结果（线程安全，显示用）
     State state() const;
@@ -64,6 +74,11 @@ private:
     double target_yaw_ = 0.0;
     double pitch_target_angle_ = 0.0;
     bool   fire_ = false;
+
+    // 序列模式成员（非空时 loop 优先消费）
+    std::deque<double> target_yaw_seq_;
+    std::deque<double> pitch_seq_;
+    std::deque<bool>   fire_seq_;
 
     // 最新结果锁（显示线程读取）
     mutable std::mutex state_mtx_;

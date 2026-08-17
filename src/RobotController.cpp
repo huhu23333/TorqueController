@@ -3,8 +3,10 @@
 RobotController::RobotController(double dt_control, int N,
                                  double J, double tau_c, double b, double tau_d,
                                  double max_torque, double max_torque_rate,
-                                 double Q, double R, double Rd, int max_iter)
-    : comm_(),
+                                 double Q, double R, double Rd, int max_iter,
+                                 bool sequence_mode)
+    : sequence_mode_(sequence_mode),
+      comm_(),
       mcu_mpc_(&comm_, dt_control, N,
                J, tau_c, b, tau_d,
                max_torque, max_torque_rate,
@@ -82,6 +84,22 @@ RobotController::State RobotController::getState() {
 
 void RobotController::set(bool auto_aim_enable, bool yaw_torque_only_mode,
                           double target_yaw, double pitch_target_angle, bool fire) {
+    if (sequence_mode_) {
+        throw std::runtime_error("RobotController: SEQUENCE mode selected, "
+                                 "use sequence set() instead of single set()");
+    }
     mcu_mpc_.set(auto_aim_enable, yaw_torque_only_mode, target_yaw,
                  pitch_target_angle, fire);
+}
+
+void RobotController::set(bool auto_aim_enable, bool yaw_torque_only_mode,
+                          const std::vector<double>& target_yaw_seq,
+                          const std::vector<double>& pitch_seq,
+                          const std::vector<bool>& fire_seq) {
+    if (!sequence_mode_) {
+        throw std::runtime_error("RobotController: SINGLE mode selected, "
+                                 "use single set() instead of sequence set()");
+    }
+    mcu_mpc_.set(auto_aim_enable, yaw_torque_only_mode,
+                 target_yaw_seq, pitch_seq, fire_seq);
 }
