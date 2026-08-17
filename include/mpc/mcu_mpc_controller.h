@@ -50,9 +50,10 @@ public:
              double pitch_target_angle, bool fire);
 
     // 序列版 set：传入 target_yaw / pitch_target_angle / fire 三个序列
-    // （长度截断到最短者；target_yaw 序列：第一个值 remainder 到 imu_yaw ±π 内，
-    //  后续值 remainder 到前一个值 ±π 内）。存储到内部序列成员，
-    //  后台线程按序消费（优先于单目标 set）。调用单目标 set 会清空这些序列。
+    // （不截断，各序列独立存储；target_yaw 序列：第一个值 remainder 到
+    //  imu_yaw ±π 内，后续值 remainder 到前一个值 ±π 内）。存储到内部序列成员，
+    //  后台线程按序逐通道消费：某序列非空取首值，空则对应成员保持当前值（回原模式），
+    //  其余通道继续用序列。调用单目标 set 会清空这些序列。
     void set(bool auto_aim_enable, bool yaw_torque_only_mode,
              const std::vector<double>& target_yaw_seq,
              const std::vector<double>& pitch_seq,

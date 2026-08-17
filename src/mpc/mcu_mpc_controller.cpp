@@ -57,14 +57,12 @@ void McuMpcController::set(bool auto_aim_enable, bool yaw_torque_only_mode,
     fire_seq_.clear();
 }
 
-// 序列版 set：三个序列截断到最短者；target_yaw 序列相对 wrap 后存储
+// 序列版 set：不截断，三个序列各自独立存储；
+// target_yaw 序列：第一个值 remainder 到 imu_yaw ±π 内，后续值 remainder 到前一个值 ±π 内
 void McuMpcController::set(bool auto_aim_enable, bool yaw_torque_only_mode,
                            const std::vector<double>& target_yaw_seq,
                            const std::vector<double>& pitch_seq,
                            const std::vector<bool>& fire_seq) {
-    // 截断到最短序列长度
-    size_t n = std::min({target_yaw_seq.size(), pitch_seq.size(), fire_seq.size()});
-
     // imu_yaw（第一个 target 值的 wrap 基准）
     double imu_yaw = 0.0;
     if (comm_) {
@@ -72,24 +70,18 @@ void McuMpcController::set(bool auto_aim_enable, bool yaw_torque_only_mode,
         if (fused.valid) imu_yaw = fused.imu_yaw_unwrapped;
     }
 
-    std::vector<double> tgt(n), pch(n);
-    std::vector<bool>   fir(n);
-    double prev = imu_yaw;
-    for (size_t i = 0; i < n; ++i) {
-        // 第一个值 remainder 到 imu_yaw ±π 内；后续值 remainder 到前一个值 ±π 内
-        double v = prev + std::remainder(target_yaw_seq[i] - prev, 2.0 * M_PI);
-        tgt[i] = v;
-        prev = v;
-        pch[i] = pitch_seq[i];
-        fir[i] = fire_seq[i];
-    }
-
     std::lock_guard<std::mutex> lock(set_mtx_);
     auto_aim_enable_      = auto_aim_enable;
     yaw_torque_only_mode_ = yaw_torque_only_mode;
-    target_yaw_seq_.assign(tgt.begin(), tgt.end());
-    pitch_seq_.assign(pch.begin(), pch.end());
-    fire_seq_.assign(fir.begin(), fir.end());
+
+    target_yaw_seq_.clear();
+    double prev = imu_yaw;
+    for (double v : target_yaw_seq) {
+        prev = prev + std::remainder(v - prev, 2.0 * M_PI);
+        target_yaw_seq_.push_back(prev);
+    }
+    pitch_seq_.assign(pitch_seq.begin(), pitch_seq.end());
+    fire_seq_.assign(fire_seq.begin(), fire_seq.end());
 }
 
 McuMpcController::State McuMpcController::state() const {
@@ -114,19 +106,24 @@ void McuMpcController::loop() {
             pitch = pitch_target_angle_;
             fire  = fire_;
 
+            // 各通道独立消费：序列非空时取首值覆盖成员并移除；
+            // 某序列用完（空）时对应成员保持当前值（回原模式），其余通道继续用序列。
+            // target_yaw 序列决定本次是否使用整序列 step。
             if (!target_yaw_seq_.empty()) {
                 seq_buf.assign(target_yaw_seq_.begin(), target_yaw_seq_.end());
-                // 取序列第一个值覆盖当前设置，并移除三个序列的第一个值
-                target_yaw_         = target_yaw_seq_.front();
-                pitch_target_angle_ = pitch_seq_.front();
-                fire_               = fire_seq_.front();
+                target_yaw_ = target_yaw_seq_.front();
                 target_yaw_seq_.pop_front();
-                pitch_seq_.pop_front();
-                fire_seq_.pop_front();
-                // 本次以序列首值作为发送参数
                 target_yaw = target_yaw_;
-                pitch      = pitch_target_angle_;
-                fire       = fire_;
+            }
+            if (!pitch_seq_.empty()) {
+                pitch_target_angle_ = pitch_seq_.front();
+                pitch_seq_.pop_front();
+                pitch = pitch_target_angle_;
+            }
+            if (!fire_seq_.empty()) {
+                fire_ = fire_seq_.front();
+                fire_seq_.pop_front();
+                fire = fire_;
             }
         }
 
