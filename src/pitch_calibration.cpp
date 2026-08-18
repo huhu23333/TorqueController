@@ -95,7 +95,7 @@ DataPoint PitchCalibrator::sample(float target_angle) {
     pkt.auto_aim_enable    = 1;
     pkt.fire               = 0;
     pkt.pitch_target_angle = target_angle;
-    pkt.yaw_torque_only_mode = 0;
+    pkt.yaw_torque_only_mode = 1;
     pkt.yaw_target_angle   = 0.0;
     pkt.yaw_target_velocity = 0.0f;
     pkt.yaw_torque         = 0.0f;
@@ -295,6 +295,19 @@ void PitchCalibrator::run() {
               << "  (pitch_target_angle=" << target_at_y_min << ")\n";
     std::cout << "MCU pitch_angle 最大值 : " << y_max
               << "  (pitch_target_angle=" << target_at_y_max << ")\n";
+
+    // ── Step 6: 输出可直接替换 LinearParams 默认值部分的片段（不自动写回代码）──
+    std::cout << "\n========== Step 6: LinearParams 默认值替换片段 ==========\n";
+    std::cout << "以下 4 行可整体替换 include/communication/McuDataPreprocessor.h 中\n";
+    std::cout << "struct LinearParams 的默认值部分（缩进与注释与当前代码一致）：\n\n";
+
+    std::cout << std::fixed << std::setprecision(6);
+    std::cout << "        double send_pitch_scale  = " << std::setw(10) << fit2.slope
+              << ";   // imu_euler_pitch → pitch_target_angle\n";
+    std::cout << "        double send_pitch_offset = " << std::setw(10) << fit2.intercept << ";\n";
+    std::cout << "        double recv_pitch_scale  = " << std::setw(10) << fit1.slope
+              << ";   // mcu_pitch_angle → imu_euler_pitch\n";
+    std::cout << "        double recv_pitch_offset = " << std::setw(10) << fit1.intercept << ";\n";
 
     std::cout << "\n========================================\n";
     std::cout << "标定完成。\n";

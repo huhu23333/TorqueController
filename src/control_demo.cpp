@@ -59,10 +59,12 @@ int main() {
     printf("正弦周期 %.1fs: target_yaw ±30°, pitch_target -10°~+20°, 相位差 90°\n", PERIOD_S);
 
     // 一体化控制封装：通信 + 融合滤波器 + yaw MPC + 后台 100Hz 发送线程
+    // mcu_linear_params 使用当前默认标定值（LinearParams{} 与默认构造等价）
     RobotController rc(DT_CTRL, MPC_PRED_N,
                        J, TAU_C, B_FRIC, TAU_D,
                        MAX_TORQUE, MAX_TORQUE_RATE,
-                       Q, R, Rd, MAX_ITER);
+                       Q, R, Rd, MAX_ITER,
+                       McuDataPreprocessor::LinearParams{});
 
     // 等待融合数据就绪
     printf("等待融合数据就绪...\n");

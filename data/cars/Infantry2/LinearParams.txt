@@ -1,0 +1,4 @@
+        double send_pitch_scale  = -19.413256;   // imu_euler_pitch → pitch_target_angle
+        double send_pitch_offset =  10.990499;
+        double recv_pitch_scale  =  -1.140968;   // mcu_pitch_angle → imu_euler_pitch
+        double recv_pitch_offset =   0.714840;

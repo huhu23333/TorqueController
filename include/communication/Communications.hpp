@@ -63,8 +63,10 @@ public:
     };
 
     // 融合权重使用 YawChassisFusion 构造默认值（imu_weight=1.0）
-    RobotCommunication()
-        : mcu_serial_([this](const mcu::ReceivePacket& pkt) { onMcuReceive(pkt); }, false)
+    // mcu_linear_params：MCU 数据线性映射标定参数（默认使用当前标定值）
+    explicit RobotCommunication(const McuDataPreprocessor::LinearParams& mcu_linear_params = McuDataPreprocessor::LinearParams{})
+        : preprocessor_(mcu_linear_params)
+        , mcu_serial_([this](const mcu::ReceivePacket& pkt) { onMcuReceive(pkt); }, false)
         , imu_serial_([this](const imu::ReceivePacket& pkt) { onImuReceive(pkt); }, false)
         , fusion_()
     {
@@ -99,7 +101,7 @@ public:
 
     // 发送 MCU 数据（发送前预处理）
     bool sendToMcu(mcu::SendPacket packet) {
-        mcu::SendPacket processed = McuDataPreprocessor::processSend(packet);
+        mcu::SendPacket processed = preprocessor_.processSend(packet);
         return mcu_serial_.sendData(processed);
     }
 
@@ -143,7 +145,7 @@ private:
 
     void onMcuReceive(const mcu::ReceivePacket& packet) {
         // 预处理后直接存储（latest_mcu_packet_ 不再存原始数据）
-        mcu::ReceivePacket processed = McuDataPreprocessor::processReceive(packet);
+        mcu::ReceivePacket processed = preprocessor_.processReceive(packet);
         {
             std::lock_guard<std::mutex> lock(mcu_mutex_);
             latest_mcu_packet_ = processed;
@@ -155,6 +157,7 @@ private:
     }
 
     // ── 成员变量 ──
+    McuDataPreprocessor  preprocessor_;   // MCU 数据线性标定预处理
     McuCommunication mcu_serial_;
     ImuCommunication imu_serial_;
 

@@ -93,11 +93,13 @@ public:
     enum class Mode { SINGLE = 0, SEQUENCE = 1 };
 
     // 建立通信 + MPC 控制封装（dt_control 控制周期、N 预测步数、MPC 参数；
+    // mcu_linear_params：MCU 数据线性映射标定参数（默认构造为当前标定值）；
     // sequence_mode=true 选择序列模式）
     RobotController(double dt_control, int N,
                     double J, double tau_c, double b, double tau_d,
                     double max_torque, double max_torque_rate,
                     double Q, double R, double Rd, int max_iter,
+                    const McuDataPreprocessor::LinearParams& mcu_linear_params,
                     bool sequence_mode = false);
     ~RobotController();
 
