@@ -72,21 +72,17 @@ RobotController::State RobotController::getState() {
     st.strict.chassis_pitch    = sp.chassis_pitch;
     st.strict.chassis_roll     = sp.chassis_roll;
 
-    // ── MPC 状态（含参考/预测序列）──
+    // ── MPC 状态（含参考/预测序列与积分值）──
     auto m = mcu_mpc_.state();
     st.mpc.yaw_target_angle    = m.yaw_target_angle;
     st.mpc.yaw_target_velocity = m.yaw_target_velocity;
     st.mpc.yaw_torque          = m.yaw_torque;
     st.mpc.delayed_target      = m.delayed_target;
+    st.mpc.integral            = m.integral;
     st.mpc.ref_sequence        = m.ref_sequence;
     st.mpc.pred_sequence       = m.pred_sequence;
 
     return st;
-}
-
-// 当前 yaw 力矩积分补偿的积分值（线程安全：读 mcu_mpc_ 缓存的 state）
-double RobotController::yawIntegral() const {
-    return mcu_mpc_.state().integral;
 }
 
 void RobotController::set(bool auto_aim_enable, bool yaw_torque_only_mode,

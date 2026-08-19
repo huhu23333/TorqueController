@@ -75,6 +75,7 @@ public:
         double yaw_target_velocity = 0.0;   // 最新预测速度
         double yaw_torque = 0.0;            // 最新控制力矩
         double delayed_target = 0.0;        // 当前参考（延迟 dt*N 步的目标）
+        double integral = 0.0;              // 当前积分值（积分补偿累积量）
         std::vector<double> ref_sequence;   // 最新一次运算的目标位置序列（N 个）
         std::vector<double> pred_sequence;  // 最新一次运算的预测位置序列（N 个，不含当前）
     };
@@ -105,11 +106,8 @@ public:
                     bool sequence_mode = false);
     ~RobotController();
 
-    // 统一获取：mcu/imu 原始 + 融合输出 + mpc 状态（含参考/预测序列）
+    // 统一获取：mcu/imu 原始 + 融合输出 + mpc 状态（含参考/预测序列与积分值）
     State getState();
-
-    // 当前 yaw 力矩积分补偿的积分值（线程安全；由后台线程每次求解后更新）
-    double yawIntegral() const;
 
     // 直通 McuMpcController::set（单目标模式；后台 100Hz 线程求解并发送 MCU）
     // integral_enable：本步是否启用 yaw 力矩积分补偿（必须传参；true 时

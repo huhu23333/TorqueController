@@ -88,10 +88,9 @@ st.mcu    // MCU 原始数据（经预处理）：yaw_angle 多圈、yaw_omega�
 st.imu    // IMU 原始数据：gx/gy/gz、ax/ay/az、euler_yaw/pitch/roll、dt_one_tenth_ms
 st.fused  // 融合滤波器输出：yaw_pos（解卷绕多圈）、yaw_rate（高频）、chassis_yaw/pitch/roll、imu_yaw_unwrapped
 st.mpc    // MPC 状态：yaw_target_angle / yaw_target_velocity / yaw_torque / delayed_target
+          //   + integral      （当前积分值，积分补偿累积量）
           //   + ref_sequence  （最新一次运算的目标位置序列，N 个）
           //   + pred_sequence （最新一次运算的预测位置序列，N 个，与 ref 逐点对应）
-
-rc.yawIntegral()   // 当前 yaw 力矩积分补偿的积分值（线程安全，由后台线程每次求解后更新）
 ```
 
 ### 2.4 完整示例
