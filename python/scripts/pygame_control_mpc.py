@@ -51,9 +51,9 @@ DELAY_TIME = 0.2        # 秒
 MPC_PRED_N = int(DELAY_TIME / DT_CTRL)
 
 # ================== 辨识参数 (params/1/Identified_parameters.txt) ==================
-J       = 0.016541
-TAU_C   = 0.097297
-B_FRIC  = 0.032100
+J       = 0.024986
+TAU_C   = 0.122514
+B_FRIC  = 0.025648
 TAU_D   = 0.0            # tau_d 设为 0
 
 # ================== 约束 ==================
