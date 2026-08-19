@@ -7,12 +7,13 @@
 McuMpcController::McuMpcController(RobotCommunication* comm, double dt_control, int N,
                                    double J, double tau_c, double b, double tau_d,
                                    double max_torque, double max_torque_rate,
-                                   double Q, double R, double Rd, int max_iter)
+                                   double Q, double R, double Rd, int max_iter,
+                                   double integral_gain)
     : comm_(comm),
       mpc_(comm, dt_control, N,
            J, tau_c, b, tau_d,
            max_torque, max_torque_rate,
-           Q, R, Rd, max_iter)
+           Q, R, Rd, max_iter, integral_gain)
 {}
 
 McuMpcController::~McuMpcController() {
@@ -32,7 +33,8 @@ void McuMpcController::stop() {
 }
 
 void McuMpcController::set(bool auto_aim_enable, bool yaw_torque_only_mode,
-                           double target_yaw, double pitch_target_angle, bool fire) {
+                           double target_yaw, double pitch_target_angle, bool fire,
+                           bool integral_enable) {
     // target_yaw 自动转换到与 imu_yaw_unwrapped 角度差最小的等效角：
     //   target_adj = imu_yaw + remainder(target_yaw − imu_yaw, 2π)
     //   - |target_adj − imu_yaw_unwrapped| ≤ π（角度差最小）
@@ -48,6 +50,7 @@ void McuMpcController::set(bool auto_aim_enable, bool yaw_torque_only_mode,
     std::lock_guard<std::mutex> lock(set_mtx_);
     auto_aim_enable_      = auto_aim_enable;
     yaw_torque_only_mode_ = yaw_torque_only_mode;
+    integral_enable_      = integral_enable;
     target_yaw_           = target_adj;
     pitch_target_angle_   = pitch_target_angle;
     fire_                 = fire;
@@ -62,7 +65,8 @@ void McuMpcController::set(bool auto_aim_enable, bool yaw_torque_only_mode,
 void McuMpcController::set(bool auto_aim_enable, bool yaw_torque_only_mode,
                            const std::vector<double>& target_yaw_seq,
                            const std::vector<double>& pitch_seq,
-                           const std::vector<bool>& fire_seq) {
+                           const std::vector<bool>& fire_seq,
+                           bool integral_enable) {
     // imu_yaw（第一个 target 值的 wrap 基准）
     double imu_yaw = 0.0;
     if (comm_) {
@@ -73,6 +77,7 @@ void McuMpcController::set(bool auto_aim_enable, bool yaw_torque_only_mode,
     std::lock_guard<std::mutex> lock(set_mtx_);
     auto_aim_enable_      = auto_aim_enable;
     yaw_torque_only_mode_ = yaw_torque_only_mode;
+    integral_enable_      = integral_enable;
 
     target_yaw_seq_.clear();
     double prev = imu_yaw;
@@ -95,13 +100,14 @@ void McuMpcController::loop() {
         auto start = std::chrono::steady_clock::now();
 
         // 取最新设置的发送参数与 mpc 目标；若序列模式非空则优先消费序列
-        bool aa, mode, fire;
+        bool aa, mode, fire, integral_enable;
         double target_yaw, pitch;
         std::vector<double> seq_buf;   // 非空表示使用整序列 step
         {
             std::lock_guard<std::mutex> lock(set_mtx_);
             aa    = auto_aim_enable_;
             mode  = yaw_torque_only_mode_;
+            integral_enable = integral_enable_;
             target_yaw = target_yaw_;
             pitch = pitch_target_angle_;
             fire  = fire_;
@@ -128,7 +134,8 @@ void McuMpcController::loop() {
         }
 
         // mpc 求解（序列模式传整个目标缓冲；内部读融合状态）
-        auto res = seq_buf.empty() ? mpc_.step(target_yaw) : mpc_.step(seq_buf);
+        auto res = seq_buf.empty() ? mpc_.step(target_yaw, integral_enable)
+                                   : mpc_.step(seq_buf, integral_enable);
 
         // 配合最新设置构造发送包
         mcu::SendPacket pkt;
@@ -148,6 +155,7 @@ void McuMpcController::loop() {
             last_state_.yaw_target_velocity = res.yaw_target_velocity;
             last_state_.yaw_torque          = res.yaw_torque;
             last_state_.delayed_target      = res.delayed_target;
+            last_state_.integral            = mpc_.integral();
             last_state_.ref_sequence        = res.ref_sequence;
             last_state_.pred_sequence       = res.pred_sequence;
         }

@@ -41,9 +41,14 @@ bash ./build.sh            # 等价于 cmake + make -j$(nproc)
 // J/tau_c/b/tau_d: 辨识参数（params/1/Identified_parameters.txt，tau_d 通常置 0）
 // max_torque/max_torque_rate: 约束（N·m / N·m/s）
 // Q/R/Rd/max_iter: MPC 代价权重与迭代上限
+// integral_gain: yaw 力矩积分补偿比例系数（必须传参）
+// mcu_linear_params: MCU 数据线性映射标定参数（默认构造为当前标定值）
+// sequence_mode: 是否选择序列模式（默认 false）
 RobotController rc(0.01, 20,
                    0.016541, 0.097297, 0.0321, 0.0,
-                   1.0, 40.0, 5.0, 0.01, 0.1, 30);
+                   1.0, 40.0, 5.0, 0.01, 0.1, 30,
+                   0.01,
+                   McuDataPreprocessor::LinearParams{});
 ```
 
 构造内部自动完成：建立 MCU/IMU 串口通信与融合滤波器（`RobotCommunication`）、建立 yaw MPC 封装（`McuMpcController`，含参考序列 + 求解 + **后台 100Hz 发送线程**，线程已自动启动）。
@@ -51,13 +56,18 @@ RobotController rc(0.01, 20,
 ### 2.2 设置目标（直通 `McuMpcController::set`）
 
 ```cpp
-// 参数顺序: auto_aim_enable, yaw_torque_only_mode, target_yaw, pitch_target_angle, fire
+// 参数顺序: auto_aim_enable, yaw_torque_only_mode, target_yaw, pitch_target_angle,
+//           fire, integral_enable（必须传参）
 // target_yaw 会自动转换到与 imu_yaw_unwrapped 角度差最小的等效角（与 target 同向）
+// integral_enable=true: yaw 力矩积分补偿（积分值 += integral_gain * (上一步预测值 −
+//   这一步实际角度)，第一次 step 不计算；yaw_torque 加积分后限幅到 ±max_torque）
+// integral_enable=false: 积分值清空为 0
 rc.set(true,   // auto_aim_enable
        false,  // yaw_torque_only_mode（0=力矩+位置+速度）
        1.57,   // target_yaw (rad，多圈语义)
        0.1,    // pitch_target_angle (rad)
-       false); // fire
+       false,  // fire
+       false); // integral_enable（积分补偿开关）
 ```
 
 每次调用即更新目标，后台 100Hz 线程持续读取最新目标、求解 MPC 并发送 MCU。
@@ -80,6 +90,8 @@ st.fused  // 融合滤波器输出：yaw_pos（解卷绕多圈）、yaw_rate（�
 st.mpc    // MPC 状态：yaw_target_angle / yaw_target_velocity / yaw_torque / delayed_target
           //   + ref_sequence  （最新一次运算的目标位置序列，N 个）
           //   + pred_sequence （最新一次运算的预测位置序列，N 个，与 ref 逐点对应）
+
+rc.yawIntegral()   // 当前 yaw 力矩积分补偿的积分值（线程安全，由后台线程每次求解后更新）
 ```
 
 ### 2.4 完整示例
@@ -92,14 +104,15 @@ st.mpc    // MPC 状态：yaw_target_angle / yaw_target_velocity / yaw_torque / 
 
 int main() {
     RobotController rc(0.01, 20, 0.016541, 0.097297, 0.0321, 0.0,
-                       1.0, 40.0, 5.0, 0.01, 0.1, 30);
+                       1.0, 40.0, 5.0, 0.01, 0.1, 30,
+                       0.01, McuDataPreprocessor::LinearParams{});
     // 等待融合就绪
     while (!rc.getState().fused.valid)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     double t = 0;
     while (true) {
-        rc.set(true, false, 0.5 * std::sin(t), 0.1, false);   // 正弦目标
+        rc.set(true, false, 0.5 * std::sin(t), 0.1, false, false);   // 正弦目标
         auto st = rc.getState();
         // 用 st.mcu / st.imu / st.fused / st.mpc 做任何事
         std::this_thread::sleep_for(std::chrono::milliseconds(10));

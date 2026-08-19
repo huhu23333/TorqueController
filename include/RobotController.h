@@ -93,12 +93,14 @@ public:
     enum class Mode { SINGLE = 0, SEQUENCE = 1 };
 
     // 建立通信 + MPC 控制封装（dt_control 控制周期、N 预测步数、MPC 参数；
+    // integral_gain：yaw 力矩积分补偿比例系数（必须传参）；
     // mcu_linear_params：MCU 数据线性映射标定参数（默认构造为当前标定值）；
     // sequence_mode=true 选择序列模式）
     RobotController(double dt_control, int N,
                     double J, double tau_c, double b, double tau_d,
                     double max_torque, double max_torque_rate,
                     double Q, double R, double Rd, int max_iter,
+                    double integral_gain,
                     const McuDataPreprocessor::LinearParams& mcu_linear_params,
                     bool sequence_mode = false);
     ~RobotController();
@@ -106,17 +108,24 @@ public:
     // 统一获取：mcu/imu 原始 + 融合输出 + mpc 状态（含参考/预测序列）
     State getState();
 
+    // 当前 yaw 力矩积分补偿的积分值（线程安全；由后台线程每次求解后更新）
+    double yawIntegral() const;
+
     // 直通 McuMpcController::set（单目标模式；后台 100Hz 线程求解并发送 MCU）
+    // integral_enable：本步是否启用 yaw 力矩积分补偿（必须传参；true 时
+    //   yaw_torque 加积分后限幅，false 时积分清空为 0）。
     // 序列模式下调用本接口抛出 std::runtime_error
     void set(bool auto_aim_enable, bool yaw_torque_only_mode, double target_yaw,
-             double pitch_target_angle, bool fire);
+             double pitch_target_angle, bool fire, bool integral_enable);
 
     // 序列模式 set（直通 McuMpcController 序列版 set）
+    // integral_enable：本次序列执行期间是否启用 yaw 力矩积分补偿（必须传参）。
     // 单目标模式下调用本接口抛出 std::runtime_error
     void set(bool auto_aim_enable, bool yaw_torque_only_mode,
              const std::vector<double>& target_yaw_seq,
              const std::vector<double>& pitch_seq,
-             const std::vector<bool>& fire_seq);
+             const std::vector<bool>& fire_seq,
+             bool integral_enable);
 
     Mode mode() const { return sequence_mode_ ? Mode::SEQUENCE : Mode::SINGLE; }
 

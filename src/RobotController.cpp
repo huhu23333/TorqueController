@@ -4,6 +4,7 @@ RobotController::RobotController(double dt_control, int N,
                                  double J, double tau_c, double b, double tau_d,
                                  double max_torque, double max_torque_rate,
                                  double Q, double R, double Rd, int max_iter,
+                                 double integral_gain,
                                  const McuDataPreprocessor::LinearParams& mcu_linear_params,
                                  bool sequence_mode)
     : sequence_mode_(sequence_mode),
@@ -11,7 +12,7 @@ RobotController::RobotController(double dt_control, int N,
       mcu_mpc_(&comm_, dt_control, N,
                J, tau_c, b, tau_d,
                max_torque, max_torque_rate,
-               Q, R, Rd, max_iter)
+               Q, R, Rd, max_iter, integral_gain)
 {
     mcu_mpc_.start();   // 启动后台 100Hz 发送线程
 }
@@ -83,24 +84,31 @@ RobotController::State RobotController::getState() {
     return st;
 }
 
+// 当前 yaw 力矩积分补偿的积分值（线程安全：读 mcu_mpc_ 缓存的 state）
+double RobotController::yawIntegral() const {
+    return mcu_mpc_.state().integral;
+}
+
 void RobotController::set(bool auto_aim_enable, bool yaw_torque_only_mode,
-                          double target_yaw, double pitch_target_angle, bool fire) {
+                          double target_yaw, double pitch_target_angle, bool fire,
+                          bool integral_enable) {
     if (sequence_mode_) {
         throw std::runtime_error("RobotController: SEQUENCE mode selected, "
                                  "use sequence set() instead of single set()");
     }
     mcu_mpc_.set(auto_aim_enable, yaw_torque_only_mode, target_yaw,
-                 pitch_target_angle, fire);
+                 pitch_target_angle, fire, integral_enable);
 }
 
 void RobotController::set(bool auto_aim_enable, bool yaw_torque_only_mode,
                           const std::vector<double>& target_yaw_seq,
                           const std::vector<double>& pitch_seq,
-                          const std::vector<bool>& fire_seq) {
+                          const std::vector<bool>& fire_seq,
+                          bool integral_enable) {
     if (!sequence_mode_) {
         throw std::runtime_error("RobotController: SINGLE mode selected, "
                                  "use single set() instead of sequence set()");
     }
     mcu_mpc_.set(auto_aim_enable, yaw_torque_only_mode,
-                 target_yaw_seq, pitch_seq, fire_seq);
+                 target_yaw_seq, pitch_seq, fire_seq, integral_enable);
 }
